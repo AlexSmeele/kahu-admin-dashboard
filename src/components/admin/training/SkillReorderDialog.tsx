@@ -48,7 +48,24 @@ export function SkillReorderDialog({ open, onOpenChange, onReorderComplete }: Sk
 
       if (error) throw error;
 
-      setSkills(data || []);
+      // Sort skills: ordered ones first (priority_order > 0), then unordered (priority_order = 0) alphabetically
+      const sortedData = (data || []).sort((a, b) => {
+        const aOrder = a.priority_order || 0;
+        const bOrder = b.priority_order || 0;
+        
+        // If both are unordered (0), sort alphabetically
+        if (aOrder === 0 && bOrder === 0) {
+          return a.name.localeCompare(b.name);
+        }
+        // If only a is unordered, put it after b
+        if (aOrder === 0) return 1;
+        // If only b is unordered, put it after a
+        if (bOrder === 0) return -1;
+        // Both are ordered, sort by priority_order
+        return aOrder - bOrder;
+      });
+
+      setSkills(sortedData);
     } catch (error) {
       console.error("Error loading skills:", error);
       toast.error("Failed to load skills");
@@ -95,7 +112,7 @@ export function SkillReorderDialog({ open, onOpenChange, onReorderComplete }: Sk
       if (errorCount > 0) {
         toast.error(`Failed to update ${errorCount} skill(s). ${successCount} updated successfully.`);
       } else {
-        toast.success("Skill order updated successfully");
+        toast.success(`Skill order updated! ${successCount} skills assigned priority values 1-${successCount}.`);
       }
 
       onReorderComplete();
@@ -160,9 +177,15 @@ export function SkillReorderDialog({ open, onOpenChange, onReorderComplete }: Sk
                     </div>
                   </div>
                   
-                  <Badge variant="outline">
-                    Current: {skill.priority_order || "N/A"}
-                  </Badge>
+                  {skill.priority_order && skill.priority_order > 0 ? (
+                    <Badge variant="default">
+                      Current: {skill.priority_order}
+                    </Badge>
+                  ) : (
+                    <Badge variant="secondary" className="text-muted-foreground">
+                      Unordered
+                    </Badge>
+                  )}
                 </div>
               ))}
             </div>
