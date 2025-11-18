@@ -61,7 +61,7 @@ export default function Signup() {
       }
     }
 
-    toast.success("Account created! Please check your email to verify your account.");
+    toast.success("Account created! Note: Admin access must be manually granted by an administrator.");
     navigate("/login");
   };
 

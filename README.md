@@ -59,6 +59,53 @@ This project is built with:
 - React
 - shadcn-ui
 - Tailwind CSS
+- Supabase (Database, Auth, Storage)
+
+## Admin Dashboard
+
+This project includes an internal admin dashboard at `/admin` for managing application data.
+
+### Access Requirements
+
+- Admin access is restricted to users with the `admin` role in the database
+- Admin role must be manually granted via the `user_roles` table
+- After signing up, users must be granted admin access before they can use the dashboard
+
+### Granting Admin Access
+
+To grant admin access to a user, run this SQL query in your Supabase SQL Editor:
+
+```sql
+-- Replace 'user-uuid' with the actual user ID from auth.users
+INSERT INTO public.user_roles (user_id, role) 
+VALUES ('user-uuid', 'admin');
+```
+
+### Admin Features
+
+The admin dashboard includes management pages for:
+
+- **Overview**: System metrics and statistics
+- **Users & Usage**: User management and analytics
+- **Training Content**: Skills, modules, and troubleshooting guides
+- **Media Library**: Training videos and images
+- **Dog Knowledge Base**: Breeds, vaccines, and treatments
+- **Invite Codes**: Access control management
+- **System & Logs**: Health monitoring and activity logs
+
+### Security
+
+- Admin authentication uses Supabase's `has_role()` security definer function
+- All admin authorization is enforced at the database level via RLS policies
+- Admin routes are lazy-loaded to optimize bundle size for regular users
+- Non-admin users are immediately redirected if they attempt to access `/admin`
+
+### Development Notes
+
+- Admin pages are located in `src/admin/pages/`
+- Shared admin layout is in `src/admin/layout/AdminLayout.tsx`
+- Admin routes use React lazy loading for code splitting
+- All admin components follow the same design system as the main app
 
 ## How can I deploy this project?
 
