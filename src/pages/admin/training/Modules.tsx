@@ -16,7 +16,7 @@ import { toast } from "sonner";
 
 interface Module {
   id: string;
-  title: string;
+  name: string;
   category: string;
   format: string;
   ideal_stage: string;
@@ -118,7 +118,7 @@ export default function AdminModules() {
                 modules.map((module) => (
                   <TableRow key={module.id}>
                     <TableCell>{module.order_index}</TableCell>
-                    <TableCell className="font-medium">{module.title}</TableCell>
+                    <TableCell className="font-medium">{module.name}</TableCell>
                     <TableCell>
                       <Badge variant="outline">{module.category}</Badge>
                     </TableCell>

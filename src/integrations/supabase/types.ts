@@ -111,6 +111,92 @@ export type Database = {
           },
         ]
       }
+      admin_content_tables: {
+        Row: {
+          created_at: string
+          description: string | null
+          display_name: string
+          id: string
+          is_active: boolean
+          name: string
+          order_index: number
+          schema_definition: Json
+          section_id: string
+          table_name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          display_name: string
+          id?: string
+          is_active?: boolean
+          name: string
+          order_index?: number
+          schema_definition?: Json
+          section_id: string
+          table_name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          display_name?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          order_index?: number
+          schema_definition?: Json
+          section_id?: string
+          table_name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_content_tables_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "admin_sections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      admin_sections: {
+        Row: {
+          created_at: string
+          description: string | null
+          display_name: string
+          icon: string | null
+          id: string
+          is_active: boolean
+          name: string
+          order_index: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          display_name: string
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          order_index?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          display_name?: string
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          order_index?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       audit_logs: {
         Row: {
           action: string
@@ -1054,8 +1140,8 @@ export type Database = {
           id: string
           ideal_stage: string
           is_published: boolean
+          name: string
           order_index: number
-          title: string
           updated_at: string
         }
         Insert: {
@@ -1070,8 +1156,8 @@ export type Database = {
           id?: string
           ideal_stage: string
           is_published?: boolean
+          name: string
           order_index?: number
-          title: string
           updated_at?: string
         }
         Update: {
@@ -1086,8 +1172,8 @@ export type Database = {
           id?: string
           ideal_stage?: string
           is_published?: boolean
+          name?: string
           order_index?: number
-          title?: string
           updated_at?: string
         }
         Relationships: []
