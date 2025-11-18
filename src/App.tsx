@@ -3,23 +3,26 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { lazy, Suspense } from "react";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import ResetPassword from "./pages/ResetPassword";
-import { AdminLayout } from "./components/admin/AdminLayout";
-import AdminOverview from "./pages/admin/Overview";
-import AdminUsers from "./pages/admin/Users";
-import AdminSkills from "./pages/admin/training/Skills";
-import AdminModules from "./pages/admin/training/Modules";
-import AdminTroubleshooting from "./pages/admin/training/Troubleshooting";
-import AdminMedia from "./pages/admin/Media";
-import AdminBreeds from "./pages/admin/dogs/Breeds";
-import AdminVaccines from "./pages/admin/dogs/Vaccines";
-import AdminTreatments from "./pages/admin/dogs/Treatments";
-import AdminInvites from "./pages/admin/Invites";
-import AdminSystem from "./pages/admin/System";
+
+// Lazy load admin routes for code splitting
+const AdminLayout = lazy(() => import("./admin/layout/AdminLayout").then(m => ({ default: m.AdminLayout })));
+const AdminOverview = lazy(() => import("./admin/pages/Overview"));
+const AdminUsers = lazy(() => import("./admin/pages/Users"));
+const AdminSkills = lazy(() => import("./admin/pages/training/Skills"));
+const AdminModules = lazy(() => import("./admin/pages/training/Modules"));
+const AdminTroubleshooting = lazy(() => import("./admin/pages/training/Troubleshooting"));
+const AdminMedia = lazy(() => import("./admin/pages/Media"));
+const AdminBreeds = lazy(() => import("./admin/pages/dogs/Breeds"));
+const AdminVaccines = lazy(() => import("./admin/pages/dogs/Vaccines"));
+const AdminTreatments = lazy(() => import("./admin/pages/dogs/Treatments"));
+const AdminInvites = lazy(() => import("./admin/pages/Invites"));
+const AdminSystem = lazy(() => import("./admin/pages/System"));
 
 const queryClient = new QueryClient();
 
@@ -35,8 +38,18 @@ const App = () => (
           <Route path="/signup" element={<Signup />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           
-          {/* Admin Routes */}
-          <Route path="/admin" element={<AdminLayout />}>
+          {/* Admin Routes - Lazy loaded for code splitting */}
+          <Route path="/admin" element={
+            <Suspense fallback={
+              <div className="flex h-screen items-center justify-center">
+                <div className="text-center">
+                  <h1 className="text-2xl font-bold mb-2">Loading admin...</h1>
+                </div>
+              </div>
+            }>
+              <AdminLayout />
+            </Suspense>
+          }>
             <Route index element={<AdminOverview />} />
             <Route path="users" element={<AdminUsers />} />
             <Route path="training/skills" element={<AdminSkills />} />
