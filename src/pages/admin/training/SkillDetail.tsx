@@ -22,6 +22,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { StepsEditor } from "@/components/admin/training/StepsEditor";
+import { ImageManager } from "@/components/admin/training/ImageManager";
 
 interface Skill {
   id: string;
@@ -49,6 +50,7 @@ interface Skill {
   fail_criteria: string | null;
   mastery_criteria: string | null;
   video_url: string | null;
+  images: any | null;
   created_at: string;
 }
 
@@ -74,6 +76,20 @@ export default function SkillDetail() {
         return Array.isArray(parsed) ? parsed : [instructions];
       } catch {
         return [instructions];
+      }
+    }
+    return [];
+  };
+
+  const parseImages = (images: any): Array<{ url: string; order: number }> => {
+    if (!images) return [];
+    if (Array.isArray(images)) return images;
+    if (typeof images === 'string') {
+      try {
+        const parsed = JSON.parse(images);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
       }
     }
     return [];
@@ -551,6 +567,21 @@ export default function SkillDetail() {
                 <div className="text-sm">{skill.mastery_criteria || "N/A"}</div>
               )}
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Images */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Images</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ImageManager
+              images={parseImages(formData.images)}
+              onChange={(images) => setFormData({ ...formData, images })}
+              editing={editing}
+              skillId={id || ""}
+            />
           </CardContent>
         </Card>
 

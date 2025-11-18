@@ -2211,6 +2211,7 @@ export type Database = {
           general_tips: string | null
           id: string
           ideal_stage_timeline: Json | null
+          images: Json | null
           long_description: string | null
           mastery_criteria: string | null
           min_age_weeks: number | null
@@ -2239,6 +2240,7 @@ export type Database = {
           general_tips?: string | null
           id?: string
           ideal_stage_timeline?: Json | null
+          images?: Json | null
           long_description?: string | null
           mastery_criteria?: string | null
           min_age_weeks?: number | null
@@ -2267,6 +2269,7 @@ export type Database = {
           general_tips?: string | null
           id?: string
           ideal_stage_timeline?: Json | null
+          images?: Json | null
           long_description?: string | null
           mastery_criteria?: string | null
           min_age_weeks?: number | null
