@@ -183,13 +183,13 @@ export default function AdminSkills() {
 
   return (
     <div className="p-4 md:p-8">
-      <div className="mb-4 md:mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
+      <div className="mb-4 md:mb-6">
+        <div className="mb-3 md:mb-4">
           <h1 className="text-2xl md:text-3xl font-bold">Training Skills</h1>
           <p className="text-sm md:text-base text-muted-foreground">Manage training skills and exercises</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setReorderDialogOpen(true)}>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <Button variant="outline" onClick={() => setReorderDialogOpen(true)} className="w-full sm:w-auto">
             <ArrowUpDown className="mr-2 h-4 w-4" />
             Reorder Skills
           </Button>
@@ -198,7 +198,7 @@ export default function AdminSkills() {
             if (!open) resetForm();
           }}>
             <DialogTrigger asChild>
-              <Button>
+              <Button className="w-full sm:w-auto">
                 <Plus className="mr-2 h-4 w-4" />
                 Add Skill
               </Button>
@@ -281,14 +281,14 @@ export default function AdminSkills() {
       </div>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="p-4 md:p-6">
           <CardTitle className="text-base md:text-lg">Skills Library</CardTitle>
           <CardDescription className="text-xs md:text-sm">
             Click on a skill to view and edit details
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="mb-4 flex flex-col sm:flex-row gap-2 md:gap-4">
+        <CardContent className="p-4 pt-0 md:p-6 md:pt-0">
+          <div className="mb-3 md:mb-4 flex flex-col sm:flex-row gap-2 md:gap-4">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
