@@ -142,10 +142,16 @@ export default function SkillDetail() {
         .update(dataToSave)
         .eq("id", id);
 
-      if (error) throw error;
+      if (error) {
+        console.error("Save error:", error);
+        toast.error(`Failed to save: ${error.message || 'Unknown error'}`);
+        throw error;
+      }
 
       toast.success("Skill updated successfully");
       setEditing(false);
+      // Re-fetch to confirm changes
+      await loadSkill();
       loadSkill();
     } catch (error) {
       console.error("Error saving skill:", error);
