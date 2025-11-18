@@ -6,6 +6,29 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
+import { z } from "zod";
+
+const signupSchema = z.object({
+  displayName: z.string()
+    .trim()
+    .min(2, "Display name must be at least 2 characters")
+    .max(50, "Display name must be less than 50 characters")
+    .regex(/^[a-zA-Z0-9\s'-]+$/, "Display name contains invalid characters"),
+  email: z.string()
+    .trim()
+    .email("Invalid email address")
+    .max(255, "Email must be less than 255 characters"),
+  password: z.string()
+    .min(8, "Password must be at least 8 characters")
+    .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+    .regex(/[a-z]/, "Password must contain at least one lowercase letter")
+    .regex(/[0-9]/, "Password must contain at least one number")
+    .regex(/[^A-Za-z0-9]/, "Password must contain at least one special character"),
+  confirmPassword: z.string()
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
+});
 
 export default function Signup() {
   const [email, setEmail] = useState("");
@@ -18,31 +41,35 @@ export default function Signup() {
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (password !== confirmPassword) {
-      toast.error("Passwords do not match");
-      return;
-    }
+    // Validate inputs
+    const validation = signupSchema.safeParse({
+      displayName,
+      email,
+      password,
+      confirmPassword
+    });
 
-    if (password.length < 6) {
-      toast.error("Password must be at least 6 characters");
+    if (!validation.success) {
+      const firstError = validation.error.errors[0];
+      toast.error(firstError.message);
       return;
     }
 
     setLoading(true);
 
     const { data: authData, error: authError } = await supabase.auth.signUp({
-      email,
-      password,
+      email: validation.data.email,
+      password: validation.data.password,
       options: {
         emailRedirectTo: `${window.location.origin}/`,
         data: {
-          display_name: displayName,
+          display_name: validation.data.displayName.trim(),
         },
       },
     });
 
     if (authError) {
-      toast.error(authError.message);
+      toast.error("Unable to create account. Please try again.");
       setLoading(false);
       return;
     }
@@ -53,11 +80,13 @@ export default function Signup() {
         .from("profiles")
         .insert({
           id: authData.user.id,
-          display_name: displayName,
+          display_name: validation.data.displayName.trim(),
         });
 
       if (profileError) {
-        console.error("Profile creation error:", profileError);
+        toast.error("Unable to complete registration. Please contact support.");
+        setLoading(false);
+        return;
       }
     }
 
