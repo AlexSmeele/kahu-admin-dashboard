@@ -124,17 +124,22 @@ src/
 
 ## 📋 Next Steps (Future Enhancements)
 
+### ✅ Recently Completed
+- [x] ~~Implement media library (upload, metadata, storage)~~ - **DONE**
+- [x] ~~Complete troubleshooting CRUD~~ - **DONE**
+- [x] Created `media_assets` table with full CRUD + file upload
+- [x] Created `troubleshooting_issues` table with severity/category management
+
 ### High Priority
 - [ ] Add charts to Overview dashboard (recharts)
 - [ ] Implement user detail/edit views
-- [ ] Build full module content editor
-- [ ] Complete troubleshooting CRUD
+- [ ] Build full module content editor with rich text/media
 
 ### Medium Priority
-- [ ] Implement media library (upload, metadata, storage)
 - [ ] Build vaccines & treatments CRUD
 - [ ] Create invite codes system
-- [ ] Add system logs viewer
+- [ ] Add system logs viewer with real-time updates
+- [ ] Implement breed detail editor
 
 ### Low Priority
 - [ ] Add analytics/reporting features
@@ -175,8 +180,15 @@ Or use the Supabase dashboard:
 - [x] Phase 6: Remove public admin links
 - [x] Phase 7: Update documentation
 - [ ] Phase 8: Testing (manual QA needed)
-- [ ] Phase 9: Deploy to production
-- [ ] Phase 10: Archive old repo
+- [x] Phase 9: Implement placeholder pages (2/6 complete)
+  - [x] Media Library with file uploads
+  - [x] Troubleshooting Library with CRUD
+  - [ ] Vaccines management
+  - [ ] Treatments management
+  - [ ] Invite codes system
+  - [ ] System logs viewer
+- [ ] Phase 10: Deploy to production
+- [ ] Phase 11: Archive old repo
 
 ---
 
