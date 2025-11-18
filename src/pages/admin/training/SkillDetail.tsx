@@ -24,6 +24,7 @@ import {
 import { StepsEditor } from "@/components/admin/training/StepsEditor";
 import { ImageManager } from "@/components/admin/training/ImageManager";
 import { SkillMultiSelect } from "@/components/admin/training/SkillMultiSelect";
+import { CategoryMultiSelect } from "@/components/admin/training/CategoryMultiSelect";
 
 interface Skill {
   id: string;
@@ -380,11 +381,20 @@ export default function SkillDetail() {
             </div>
             <div className="space-y-2">
               <Label>Categories</Label>
-              <div className="flex flex-wrap gap-1">
-                {skill.category?.map((cat) => (
-                  <Badge key={cat} variant="outline">{cat}</Badge>
-                ))}
-              </div>
+              {editing ? (
+                <CategoryMultiSelect
+                  value={formData.category || []}
+                  onChange={(newCategories) =>
+                    setFormData({ ...formData, category: newCategories })
+                  }
+                />
+              ) : (
+                <div className="flex flex-wrap gap-1">
+                  {skill.category?.map((cat) => (
+                    <Badge key={cat} variant="outline">{cat}</Badge>
+                  ))}
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
