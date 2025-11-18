@@ -188,8 +188,8 @@ export default function AdminSkills() {
           <h1 className="text-2xl md:text-3xl font-bold">Training Skills</h1>
           <p className="text-sm md:text-base text-muted-foreground">Manage training skills and exercises</p>
         </div>
-        <div className="flex flex-col sm:flex-row gap-2">
-          <Button variant="outline" onClick={() => setReorderDialogOpen(true)} className="w-full sm:w-auto">
+        <div className="flex flex-row gap-2">
+          <Button variant="outline" onClick={() => setReorderDialogOpen(true)} className="flex-1 sm:flex-none sm:w-auto">
             <ArrowUpDown className="mr-2 h-4 w-4" />
             Reorder Skills
           </Button>
@@ -198,7 +198,7 @@ export default function AdminSkills() {
             if (!open) resetForm();
           }}>
             <DialogTrigger asChild>
-              <Button className="w-full sm:w-auto">
+              <Button className="flex-1 sm:flex-none sm:w-auto">
                 <Plus className="mr-2 h-4 w-4" />
                 Add Skill
               </Button>
@@ -288,7 +288,7 @@ export default function AdminSkills() {
           </CardDescription>
         </CardHeader>
         <CardContent className="p-4 pt-0 md:p-6 md:pt-0">
-          <div className="mb-3 md:mb-4 flex flex-col sm:flex-row gap-2 md:gap-4">
+          <div className="mb-3 md:mb-4 flex flex-row gap-2">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -299,7 +299,7 @@ export default function AdminSkills() {
               />
             </div>
             <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="w-[200px]">
+              <SelectTrigger className="w-[160px] sm:w-[200px]">
                 <SelectValue placeholder="Filter by category" />
               </SelectTrigger>
               <SelectContent>
