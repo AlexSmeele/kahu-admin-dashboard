@@ -25,6 +25,8 @@ const AdminVaccines = lazy(() => import("./pages/admin/dogs/Vaccines"));
 const AdminTreatments = lazy(() => import("./pages/admin/dogs/Treatments"));
 const AdminInvites = lazy(() => import("./pages/admin/Invites"));
 const AdminSystem = lazy(() => import("./pages/admin/System"));
+const AdminSections = lazy(() => import("./pages/admin/content/Sections"));
+const AdminSectionDetail = lazy(() => import("./pages/admin/content/SectionDetail"));
 
 const queryClient = new QueryClient();
 
@@ -56,6 +58,8 @@ const App = () => (
               <Route path="dogs/treatments" element={<AdminTreatments />} />
               <Route path="invites" element={<AdminInvites />} />
               <Route path="system" element={<AdminSystem />} />
+              <Route path="content/sections" element={<AdminSections />} />
+              <Route path="content/sections/:id" element={<AdminSectionDetail />} />
             </Route>
 
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

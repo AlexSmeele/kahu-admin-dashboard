@@ -16,6 +16,7 @@ import {
   Moon,
   Sun,
   Menu,
+  Layers,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
@@ -57,6 +58,7 @@ const navigation: NavItem[] = [
       { title: "Treatments", href: "/admin/dogs/treatments", icon: FileText },
     ],
   },
+  { title: "Content Manager", href: "/admin/content/sections", icon: Layers },
   { title: "Invite Codes", href: "/admin/invites", icon: Ticket },
   { title: "System & Logs", href: "/admin/system", icon: Settings },
 ];
