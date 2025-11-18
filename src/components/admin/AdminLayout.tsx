@@ -74,19 +74,22 @@ export function AdminLayout() {
       return;
     }
 
-    // Admin authorization logic - you can customize this
-    // For now, we'll check if the user has an admin role in their profile
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role, display_name")
-      .eq("id", user.id)
-      .single();
+    // Check if user has admin role using secure function
+    const { data: isAdmin, error } = await supabase
+      .rpc("has_role", { _user_id: user.id, _role: "admin" });
 
-    if (profile?.role !== "admin") {
+    if (error || !isAdmin) {
       toast.error("Unauthorized access");
       navigate("/");
       return;
     }
+
+    // Get display name from profile
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("display_name")
+      .eq("id", user.id)
+      .single();
 
     setUserEmail(profile?.display_name || user.email || "Admin");
     setIsAuthorized(true);
