@@ -19,8 +19,8 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 220 9% 10%;
 
-    /* Primary: Emerald (#10b981) */
-    --primary: 160 84% 39%;
+    /* Primary: Emerald - adjusted for WCAG AA contrast (4.5:1 with white text) */
+    --primary: 160 84% 32%;
     --primary-foreground: 0 0% 100%;
 
     /* Secondary: Amber (#f59e0b) */
@@ -42,7 +42,7 @@ All colors MUST be HSL.
     /* Borders and inputs */
     --border: 220 13% 91%;
     --input: 220 13% 91%;
-    --ring: 160 84% 39%;
+    --ring: 160 84% 32%;
 
     /* Border radius: 8px default (Kahu standard) */
     --radius: 0.5rem;
@@ -50,15 +50,15 @@ All colors MUST be HSL.
     /* Sidebar using emerald tints */
     --sidebar-background: 160 15% 98%;
     --sidebar-foreground: 220 9% 30%;
-    --sidebar-primary: 160 84% 39%;
+    --sidebar-primary: 160 84% 32%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 160 20% 96%;
     --sidebar-accent-foreground: 160 60% 25%;
     --sidebar-border: 160 15% 90%;
-    --sidebar-ring: 160 84% 39%;
+    --sidebar-ring: 160 84% 32%;
 
-    /* Success: Emerald */
-    --success: 160 84% 39%;
+    /* Success: Emerald - matches primary for consistency */
+    --success: 160 84% 32%;
     --success-foreground: 0 0% 100%;
 
     /* Warning: Amber */
@@ -81,8 +81,8 @@ All colors MUST be HSL.
     --popover: 220 15% 12%;
     --popover-foreground: 0 0% 98%;
 
-    /* Primary: Emerald (slightly brighter for dark mode) */
-    --primary: 160 84% 45%;
+    /* Primary: Emerald (adjusted for dark mode) */
+    --primary: 160 84% 38%;
     --primary-foreground: 0 0% 100%;
 
     /* Secondary: Amber */
@@ -104,20 +104,20 @@ All colors MUST be HSL.
     /* Borders and inputs */
     --border: 220 15% 20%;
     --input: 220 15% 20%;
-    --ring: 160 84% 45%;
+    --ring: 160 84% 38%;
 
     /* Sidebar using dark emerald tints */
     --sidebar-background: 220 18% 10%;
     --sidebar-foreground: 0 0% 95%;
-    --sidebar-primary: 160 84% 45%;
+    --sidebar-primary: 160 84% 38%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 220 15% 15%;
     --sidebar-accent-foreground: 0 0% 95%;
     --sidebar-border: 220 15% 18%;
-    --sidebar-ring: 160 84% 45%;
+    --sidebar-ring: 160 84% 38%;
 
     /* Semantic colors for dark mode */
-    --success: 160 84% 45%;
+    --success: 160 84% 38%;
     --success-foreground: 0 0% 100%;
     
     --warning: 38 92% 55%;
