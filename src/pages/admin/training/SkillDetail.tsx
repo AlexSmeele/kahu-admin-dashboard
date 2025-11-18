@@ -123,9 +123,23 @@ export default function SkillDetail() {
     if (!id) return;
 
     try {
+      // Prepare data with proper type conversions
+      const dataToSave = {
+        ...formData,
+        // Ensure priority_order is a number or null
+        priority_order: formData.priority_order ? parseInt(String(formData.priority_order)) : null,
+        // Ensure numeric fields are properly typed
+        difficulty_level: formData.difficulty_level ? parseInt(String(formData.difficulty_level)) : 1,
+        estimated_time_weeks: formData.estimated_time_weeks ? parseInt(String(formData.estimated_time_weeks)) : null,
+        min_age_weeks: formData.min_age_weeks ? parseInt(String(formData.min_age_weeks)) : null,
+        recommended_practice_frequency_days: formData.recommended_practice_frequency_days 
+          ? parseInt(String(formData.recommended_practice_frequency_days)) 
+          : null,
+      };
+
       const { error } = await supabase
         .from("skills")
-        .update(formData)
+        .update(dataToSave)
         .eq("id", id);
 
       if (error) throw error;
@@ -319,11 +333,14 @@ export default function SkillDetail() {
                     <Input
                       type="number"
                       min="1"
-                      value={formData.priority_order || ""}
-                      onChange={(e) => setFormData({ 
-                        ...formData, 
-                        priority_order: parseInt(e.target.value) || null 
-                      })}
+                      value={formData.priority_order ?? ""}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setFormData({ 
+                          ...formData, 
+                          priority_order: val === "" ? null : parseInt(val)
+                        });
+                      }}
                     />
                     <p className="text-xs text-muted-foreground">
                       1 = most basic skill, higher numbers = more advanced
