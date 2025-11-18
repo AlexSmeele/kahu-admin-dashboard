@@ -29,10 +29,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Plus } from "lucide-react";
+import { Search, Plus, ArrowUpDown } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { SkillReorderDialog } from "@/components/admin/training/SkillReorderDialog";
 
 interface Skill {
   id: string;
@@ -42,6 +43,7 @@ interface Skill {
   skill_type: string | null;
   short_description: string | null;
   long_description: string | null;
+  priority_order: number | null;
   created_at: string;
 }
 
@@ -52,6 +54,7 @@ export default function AdminSkills() {
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [reorderDialogOpen, setReorderDialogOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     category: ["foundation"],
@@ -71,6 +74,7 @@ export default function AdminSkills() {
       let query = supabase
         .from("skills")
         .select("*")
+        .order("priority_order", { ascending: true, nullsFirst: false })
         .order("name", { ascending: true });
 
       if (searchTerm) {
@@ -137,90 +141,96 @@ export default function AdminSkills() {
           <h1 className="text-3xl font-bold">Training Skills</h1>
           <p className="text-muted-foreground">Manage training skills and exercises</p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={(open) => {
-          setDialogOpen(open);
-          if (!open) resetForm();
-        }}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Skill
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Create New Skill</DialogTitle>
-              <DialogDescription>
-                Add a new training skill to the database.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="name">Skill Name</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="e.g., Sit, Stay, Come"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setReorderDialogOpen(true)}>
+            <ArrowUpDown className="mr-2 h-4 w-4" />
+            Reorder Skills
+          </Button>
+          <Dialog open={dialogOpen} onOpenChange={(open) => {
+            setDialogOpen(open);
+            if (!open) resetForm();
+          }}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Skill
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Create New Skill</DialogTitle>
+                <DialogDescription>
+                  Add a new training skill to the database.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="type">Skill Type</Label>
-                  <Select
-                    value={formData.skill_type || "foundation"}
-                    onValueChange={(value) => setFormData({ ...formData, skill_type: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="foundation">Foundation</SelectItem>
-                      <SelectItem value="obedience">Obedience</SelectItem>
-                      <SelectItem value="trick">Trick</SelectItem>
-                      <SelectItem value="behavior">Behavior</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="name">Skill Name</Label>
+                  <Input
+                    id="name"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    placeholder="e.g., Sit, Stay, Come"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="type">Skill Type</Label>
+                    <Select
+                      value={formData.skill_type || "foundation"}
+                      onValueChange={(value) => setFormData({ ...formData, skill_type: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="foundation">Foundation</SelectItem>
+                        <SelectItem value="obedience">Obedience</SelectItem>
+                        <SelectItem value="trick">Trick</SelectItem>
+                        <SelectItem value="behavior">Behavior</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="difficulty">Difficulty (1-5)</Label>
+                    <Input
+                      id="difficulty"
+                      type="number"
+                      min="1"
+                      max="5"
+                      value={formData.difficulty_level}
+                      onChange={(e) =>
+                        setFormData({ ...formData, difficulty_level: parseInt(e.target.value) || 1 })
+                      }
+                    />
+                  </div>
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="difficulty">Difficulty (1-5)</Label>
+                  <Label htmlFor="short-desc">Short Description</Label>
                   <Input
-                    id="difficulty"
-                    type="number"
-                    min="1"
-                    max="5"
-                    value={formData.difficulty_level}
-                    onChange={(e) =>
-                      setFormData({ ...formData, difficulty_level: parseInt(e.target.value) || 1 })
-                    }
+                    id="short-desc"
+                    value={formData.short_description}
+                    onChange={(e) => setFormData({ ...formData, short_description: e.target.value })}
+                    placeholder="Brief one-line description"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="long-desc">Long Description</Label>
+                  <Textarea
+                    id="long-desc"
+                    rows={6}
+                    value={formData.long_description}
+                    onChange={(e) => setFormData({ ...formData, long_description: e.target.value })}
+                    placeholder="Detailed description of the skill..."
                   />
                 </div>
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="short-desc">Short Description</Label>
-                <Input
-                  id="short-desc"
-                  value={formData.short_description}
-                  onChange={(e) => setFormData({ ...formData, short_description: e.target.value })}
-                  placeholder="Brief one-line description"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="long-desc">Long Description</Label>
-                <Textarea
-                  id="long-desc"
-                  rows={6}
-                  value={formData.long_description}
-                  onChange={(e) => setFormData({ ...formData, long_description: e.target.value })}
-                  placeholder="Detailed description of the skill..."
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button onClick={handleSave}>Create Skill</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+              <DialogFooter>
+                <Button onClick={handleSave}>Create Skill</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       <Card>
@@ -261,6 +271,7 @@ export default function AdminSkills() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-16">Order</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Difficulty</TableHead>
@@ -270,7 +281,7 @@ export default function AdminSkills() {
               <TableBody>
                 {skills.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center text-muted-foreground">
+                    <TableCell colSpan={5} className="text-center text-muted-foreground">
                       No skills found
                     </TableCell>
                   </TableRow>
@@ -281,6 +292,11 @@ export default function AdminSkills() {
                       className="cursor-pointer hover:bg-muted/50"
                       onClick={() => handleRowClick(skill.id)}
                     >
+                      <TableCell>
+                        <Badge variant="secondary" className="w-10 justify-center">
+                          {skill.priority_order || "-"}
+                        </Badge>
+                      </TableCell>
                       <TableCell className="font-medium">{skill.name}</TableCell>
                       <TableCell>
                         <Badge variant="outline">{skill.skill_type || "N/A"}</Badge>
@@ -299,6 +315,12 @@ export default function AdminSkills() {
           )}
         </CardContent>
       </Card>
+
+      <SkillReorderDialog
+        open={reorderDialogOpen}
+        onOpenChange={setReorderDialogOpen}
+        onReorderComplete={loadSkills}
+      />
     </div>
   );
 }
