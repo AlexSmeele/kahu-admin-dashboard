@@ -1,9 +1,24 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dog, Shield, Users, GraduationCap } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 const Index = () => {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setIsAuthenticated(!!user);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsAuthenticated(!!session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-accent/5">
       {/* Header */}
@@ -13,12 +28,21 @@ const Index = () => {
             <Dog className="h-8 w-8 text-primary" />
             <span className="text-xl font-bold">Kahu</span>
           </div>
-          <Link to="/admin">
-            <Button variant="outline" size="sm">
-              <Shield className="mr-2 h-4 w-4" />
-              Admin Access
-            </Button>
-          </Link>
+          {isAuthenticated ? (
+            <Link to="/admin">
+              <Button variant="outline" size="sm">
+                <Shield className="mr-2 h-4 w-4" />
+                Dashboard
+              </Button>
+            </Link>
+          ) : (
+            <Link to="/login">
+              <Button variant="outline" size="sm">
+                <Shield className="mr-2 h-4 w-4" />
+                Admin Login
+              </Button>
+            </Link>
+          )}
         </div>
       </header>
 
@@ -83,11 +107,19 @@ const Index = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="flex justify-center pb-6">
-              <Link to="/admin">
-                <Button size="lg" className="shadow-lg">
-                  Access Dashboard
-                </Button>
-              </Link>
+              {isAuthenticated ? (
+                <Link to="/admin">
+                  <Button size="lg" className="shadow-lg">
+                    Go to Dashboard
+                  </Button>
+                </Link>
+              ) : (
+                <Link to="/login">
+                  <Button size="lg" className="shadow-lg">
+                    Admin Access
+                  </Button>
+                </Link>
+              )}
             </CardContent>
           </Card>
         </div>

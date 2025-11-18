@@ -68,9 +68,9 @@ export function AdminLayout() {
 
   const checkAuth = async () => {
     const { data: { user } } = await supabase.auth.getUser();
-    
+
     if (!user) {
-      navigate("/");
+      navigate("/login?redirect=/admin");
       return;
     }
 
@@ -79,8 +79,8 @@ export function AdminLayout() {
       .rpc("has_role", { _user_id: user.id, _role: "admin" });
 
     if (error || !isAdmin) {
-      toast.error("Unauthorized access");
-      navigate("/");
+      toast.error("Unauthorized access - Admin role required");
+      navigate("/login?redirect=/admin");
       return;
     }
 
