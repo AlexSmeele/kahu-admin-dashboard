@@ -55,6 +55,8 @@ export default function AdminSkills() {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [reorderDialogOpen, setReorderDialogOpen] = useState(false);
+  const [sortField, setSortField] = useState<keyof Skill | null>("priority_order");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [formData, setFormData] = useState({
     name: "",
     category: ["foundation"],
@@ -133,6 +135,50 @@ export default function AdminSkills() {
   const handleRowClick = (skillId: string) => {
     navigate(`/admin/training/skills/${skillId}`);
   };
+
+  const handleSort = (field: keyof Skill) => {
+    if (sortField === field) {
+      // Toggle direction if clicking same field
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      // New field, default to ascending
+      setSortField(field);
+      setSortDirection("asc");
+    }
+  };
+
+  const sortedSkills = [...skills].sort((a, b) => {
+    if (!sortField) return 0;
+
+    const aValue = a[sortField];
+    const bValue = b[sortField];
+
+    // Handle null/undefined values
+    if (aValue == null && bValue == null) return 0;
+    if (aValue == null) return sortDirection === "asc" ? 1 : -1;
+    if (bValue == null) return sortDirection === "asc" ? -1 : 1;
+
+    // Handle arrays (like category)
+    if (Array.isArray(aValue) && Array.isArray(bValue)) {
+      const aStr = aValue.join(", ");
+      const bStr = bValue.join(", ");
+      return sortDirection === "asc" 
+        ? aStr.localeCompare(bStr)
+        : bStr.localeCompare(aStr);
+    }
+
+    // Handle numbers
+    if (typeof aValue === "number" && typeof bValue === "number") {
+      return sortDirection === "asc" ? aValue - bValue : bValue - aValue;
+    }
+
+    // Handle strings
+    const aStr = String(aValue);
+    const bStr = String(bValue);
+    return sortDirection === "asc" 
+      ? aStr.localeCompare(bStr)
+      : bStr.localeCompare(aStr);
+  });
 
   return (
     <div className="p-8">
@@ -271,22 +317,54 @@ export default function AdminSkills() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-16">Order</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Difficulty</TableHead>
+                  <TableHead 
+                    className="w-16 cursor-pointer hover:bg-muted/50"
+                    onClick={() => handleSort("priority_order")}
+                  >
+                    <div className="flex items-center gap-1">
+                      Order
+                      <ArrowUpDown className={`h-3 w-3 ${sortField === "priority_order" ? "text-primary" : "text-muted-foreground"}`} />
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => handleSort("name")}
+                  >
+                    <div className="flex items-center gap-1">
+                      Name
+                      <ArrowUpDown className={`h-3 w-3 ${sortField === "name" ? "text-primary" : "text-muted-foreground"}`} />
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => handleSort("skill_type")}
+                  >
+                    <div className="flex items-center gap-1">
+                      Type
+                      <ArrowUpDown className={`h-3 w-3 ${sortField === "skill_type" ? "text-primary" : "text-muted-foreground"}`} />
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => handleSort("difficulty_level")}
+                  >
+                    <div className="flex items-center gap-1">
+                      Difficulty
+                      <ArrowUpDown className={`h-3 w-3 ${sortField === "difficulty_level" ? "text-primary" : "text-muted-foreground"}`} />
+                    </div>
+                  </TableHead>
                   <TableHead>Description</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {skills.length === 0 ? (
+                {sortedSkills.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center text-muted-foreground">
                       No skills found
                     </TableCell>
                   </TableRow>
                 ) : (
-                  skills.map((skill) => (
+                  sortedSkills.map((skill) => (
                     <TableRow 
                       key={skill.id} 
                       className="cursor-pointer hover:bg-muted/50"
