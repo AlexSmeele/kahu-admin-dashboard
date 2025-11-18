@@ -2225,6 +2225,7 @@ export type Database = {
           skill_type: string | null
           training_insights: string | null
           troubleshooting: string | null
+          updated_at: string
           video_url: string | null
         }
         Insert: {
@@ -2254,6 +2255,7 @@ export type Database = {
           skill_type?: string | null
           training_insights?: string | null
           troubleshooting?: string | null
+          updated_at?: string
           video_url?: string | null
         }
         Update: {
@@ -2283,6 +2285,7 @@ export type Database = {
           skill_type?: string | null
           training_insights?: string | null
           troubleshooting?: string | null
+          updated_at?: string
           video_url?: string | null
         }
         Relationships: []
