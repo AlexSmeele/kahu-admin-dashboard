@@ -326,7 +326,7 @@ export default function SkillDetail() {
                 )}
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Difficulty Level</Label>
                 {editing ? (
@@ -373,13 +373,13 @@ export default function SkillDetail() {
                   <Badge variant="secondary">{skill.priority_order || "Not set"}</Badge>
                 )}
               </div>
-              <div className="space-y-2">
-                <Label>Categories</Label>
-                <div className="flex flex-wrap gap-1">
-                  {skill.category?.map((cat) => (
-                    <Badge key={cat} variant="outline">{cat}</Badge>
-                  ))}
-                </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Categories</Label>
+              <div className="flex flex-wrap gap-1">
+                {skill.category?.map((cat) => (
+                  <Badge key={cat} variant="outline">{cat}</Badge>
+                ))}
               </div>
             </div>
           </CardContent>
