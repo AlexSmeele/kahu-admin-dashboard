@@ -12,6 +12,7 @@ import { AdminLayout } from "./components/admin/AdminLayout";
 import AdminOverview from "./pages/admin/Overview";
 import AdminUsers from "./pages/admin/Users";
 import AdminSkills from "./pages/admin/training/Skills";
+import SkillDetail from "./pages/admin/training/SkillDetail";
 import AdminModules from "./pages/admin/training/Modules";
 import AdminTroubleshooting from "./pages/admin/training/Troubleshooting";
 import AdminMedia from "./pages/admin/Media";
@@ -40,6 +41,7 @@ const App = () => (
             <Route index element={<AdminOverview />} />
             <Route path="users" element={<AdminUsers />} />
             <Route path="training/skills" element={<AdminSkills />} />
+            <Route path="training/skills/:id" element={<SkillDetail />} />
             <Route path="training/modules" element={<AdminModules />} />
             <Route path="training/troubleshooting" element={<AdminTroubleshooting />} />
             <Route path="media" element={<AdminMedia />} />
