@@ -4,24 +4,27 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
+import { lazy, Suspense } from "react";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import ResetPassword from "./pages/ResetPassword";
-import { AdminLayout } from "./components/admin/AdminLayout";
-import AdminOverview from "./pages/admin/Overview";
-import AdminUsers from "./pages/admin/Users";
-import AdminSkills from "./pages/admin/training/Skills";
-import SkillDetail from "./pages/admin/training/SkillDetail";
-import AdminModules from "./pages/admin/training/Modules";
-import AdminTroubleshooting from "./pages/admin/training/Troubleshooting";
-import AdminMedia from "./pages/admin/Media";
-import AdminBreeds from "./pages/admin/dogs/Breeds";
-import AdminVaccines from "./pages/admin/dogs/Vaccines";
-import AdminTreatments from "./pages/admin/dogs/Treatments";
-import AdminInvites from "./pages/admin/Invites";
-import AdminSystem from "./pages/admin/System";
+
+// Lazy load admin components to reduce initial bundle size
+const AdminLayout = lazy(() => import("./components/admin/AdminLayout").then(m => ({ default: m.AdminLayout })));
+const AdminOverview = lazy(() => import("./pages/admin/Overview"));
+const AdminUsers = lazy(() => import("./pages/admin/Users"));
+const AdminSkills = lazy(() => import("./pages/admin/training/Skills"));
+const SkillDetail = lazy(() => import("./pages/admin/training/SkillDetail"));
+const AdminModules = lazy(() => import("./pages/admin/training/Modules"));
+const AdminTroubleshooting = lazy(() => import("./pages/admin/training/Troubleshooting"));
+const AdminMedia = lazy(() => import("./pages/admin/Media"));
+const AdminBreeds = lazy(() => import("./pages/admin/dogs/Breeds"));
+const AdminVaccines = lazy(() => import("./pages/admin/dogs/Vaccines"));
+const AdminTreatments = lazy(() => import("./pages/admin/dogs/Treatments"));
+const AdminInvites = lazy(() => import("./pages/admin/Invites"));
+const AdminSystem = lazy(() => import("./pages/admin/System"));
 
 const queryClient = new QueryClient();
 
@@ -32,31 +35,33 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<Signup />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-          
-          {/* Admin Routes */}
-          <Route path="/admin" element={<AdminLayout />}>
-            <Route index element={<AdminOverview />} />
-            <Route path="users" element={<AdminUsers />} />
-            <Route path="training/skills" element={<AdminSkills />} />
-            <Route path="training/skills/:id" element={<SkillDetail />} />
-            <Route path="training/modules" element={<AdminModules />} />
-            <Route path="training/troubleshooting" element={<AdminTroubleshooting />} />
-            <Route path="media" element={<AdminMedia />} />
-            <Route path="dogs/breeds" element={<AdminBreeds />} />
-            <Route path="dogs/vaccines" element={<AdminVaccines />} />
-            <Route path="dogs/treatments" element={<AdminTreatments />} />
-            <Route path="invites" element={<AdminInvites />} />
-            <Route path="system" element={<AdminSystem />} />
-          </Route>
+        <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>}>
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<Signup />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            
+            {/* Admin Routes - Lazy loaded to reduce initial bundle size */}
+            <Route path="/admin" element={<AdminLayout />}>
+              <Route index element={<AdminOverview />} />
+              <Route path="users" element={<AdminUsers />} />
+              <Route path="training/skills" element={<AdminSkills />} />
+              <Route path="training/skills/:id" element={<SkillDetail />} />
+              <Route path="training/modules" element={<AdminModules />} />
+              <Route path="training/troubleshooting" element={<AdminTroubleshooting />} />
+              <Route path="media" element={<AdminMedia />} />
+              <Route path="dogs/breeds" element={<AdminBreeds />} />
+              <Route path="dogs/vaccines" element={<AdminVaccines />} />
+              <Route path="dogs/treatments" element={<AdminTreatments />} />
+              <Route path="invites" element={<AdminInvites />} />
+              <Route path="system" element={<AdminSystem />} />
+            </Route>
 
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </Suspense>
       </BrowserRouter>
     </TooltipProvider>
     </ThemeProvider>
