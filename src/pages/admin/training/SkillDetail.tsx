@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/collapsible";
 import { StepsEditor } from "@/components/admin/training/StepsEditor";
 import { ImageManager } from "@/components/admin/training/ImageManager";
+import { SkillMultiSelect } from "@/components/admin/training/SkillMultiSelect";
 
 interface Skill {
   id: string;
@@ -95,6 +96,8 @@ export default function SkillDetail() {
     return [];
   };
 
+  const [prerequisiteSkills, setPrerequisiteSkills] = useState<Array<{ id: string; name: string }>>([]);
+
   const loadSkill = async () => {
     if (!id) return;
     
@@ -110,6 +113,20 @@ export default function SkillDetail() {
 
       setSkill(data);
       setFormData(data);
+
+      // Load prerequisite skill names
+      if (data.prerequisites && data.prerequisites.length > 0) {
+        const { data: prereqData } = await supabase
+          .from("skills")
+          .select("id, name")
+          .in("id", data.prerequisites);
+        
+        if (prereqData) {
+          setPrerequisiteSkills(prereqData);
+        }
+      } else {
+        setPrerequisiteSkills([]);
+      }
     } catch (error) {
       console.error("Error loading skill:", error);
       toast.error("Failed to load skill");
@@ -415,16 +432,16 @@ export default function SkillDetail() {
             <div className="space-y-2">
               <Label>Prerequisites</Label>
               {editing ? (
-                <Textarea
-                  value={formData.prerequisites?.join(", ") || ""}
-                  onChange={(e) => setFormData({ ...formData, prerequisites: e.target.value.split(",").map(s => s.trim()).filter(Boolean) })}
-                  placeholder="Comma-separated skill IDs"
+                <SkillMultiSelect
+                  value={formData.prerequisites || []}
+                  onChange={(value) => setFormData({ ...formData, prerequisites: value })}
+                  currentSkillId={id}
                 />
               ) : (
-                <div className="flex flex-wrap gap-1">
-                  {skill.prerequisites?.length ? (
-                    skill.prerequisites.map((prereq) => (
-                      <Badge key={prereq} variant="secondary">{prereq}</Badge>
+                <div className="flex flex-wrap gap-2">
+                  {prerequisiteSkills.length > 0 ? (
+                    prerequisiteSkills.map((prereq) => (
+                      <Badge key={prereq.id} variant="secondary">{prereq.name}</Badge>
                     ))
                   ) : (
                     <span className="text-sm text-muted-foreground">None</span>
