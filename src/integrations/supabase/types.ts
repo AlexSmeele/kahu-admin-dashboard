@@ -2224,6 +2224,7 @@ export type Database = {
           skill_type: string | null
           training_insights: string | null
           troubleshooting: string | null
+          video_url: string | null
         }
         Insert: {
           achievement_levels?: Json | null
@@ -2251,6 +2252,7 @@ export type Database = {
           skill_type?: string | null
           training_insights?: string | null
           troubleshooting?: string | null
+          video_url?: string | null
         }
         Update: {
           achievement_levels?: Json | null
@@ -2278,6 +2280,7 @@ export type Database = {
           skill_type?: string | null
           training_insights?: string | null
           troubleshooting?: string | null
+          video_url?: string | null
         }
         Relationships: []
       }

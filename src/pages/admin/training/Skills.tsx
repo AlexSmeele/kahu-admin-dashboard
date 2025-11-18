@@ -29,7 +29,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Plus, Pencil, Trash2 } from "lucide-react";
+import { Search, Plus } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
@@ -45,12 +46,12 @@ interface Skill {
 }
 
 export default function AdminSkills() {
+  const navigate = useNavigate();
   const [skills, setSkills] = useState<Skill[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingSkill, setEditingSkill] = useState<Skill | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     category: ["foundation"],
@@ -98,22 +99,12 @@ export default function AdminSkills() {
 
   const handleSave = async () => {
     try {
-      if (editingSkill) {
-        const { error } = await supabase
-          .from("skills")
-          .update(formData)
-          .eq("id", editingSkill.id);
+      const { error } = await supabase
+        .from("skills")
+        .insert([formData]);
 
-        if (error) throw error;
-        toast.success("Skill updated successfully");
-      } else {
-        const { error } = await supabase
-          .from("skills")
-          .insert([formData]);
-
-        if (error) throw error;
-        toast.success("Skill created successfully");
-      }
+      if (error) throw error;
+      toast.success("Skill created successfully");
 
       setDialogOpen(false);
       resetForm();
@@ -121,25 +112,6 @@ export default function AdminSkills() {
     } catch (error) {
       console.error("Error saving skill:", error);
       toast.error("Failed to save skill");
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this skill?")) return;
-
-    try {
-      const { error } = await supabase
-        .from("skills")
-        .delete()
-        .eq("id", id);
-
-      if (error) throw error;
-
-      toast.success("Skill deleted successfully");
-      loadSkills();
-    } catch (error) {
-      console.error("Error deleting skill:", error);
-      toast.error("Failed to delete skill");
     }
   };
 
@@ -152,20 +124,10 @@ export default function AdminSkills() {
       short_description: "",
       long_description: "",
     });
-    setEditingSkill(null);
   };
 
-  const openEditDialog = (skill: Skill) => {
-    setEditingSkill(skill);
-    setFormData({
-      name: skill.name,
-      category: skill.category || ["foundation"],
-      difficulty_level: skill.difficulty_level,
-      skill_type: skill.skill_type || "foundation",
-      short_description: skill.short_description || "",
-      long_description: skill.long_description || "",
-    });
-    setDialogOpen(true);
+  const handleRowClick = (skillId: string) => {
+    navigate(`/admin/training/skills/${skillId}`);
   };
 
   return (
@@ -187,11 +149,9 @@ export default function AdminSkills() {
           </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>{editingSkill ? "Edit Skill" : "Create New Skill"}</DialogTitle>
+              <DialogTitle>Create New Skill</DialogTitle>
               <DialogDescription>
-                {editingSkill
-                  ? "Update the skill details below."
-                  : "Add a new training skill to the database."}
+                Add a new training skill to the database.
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
@@ -242,25 +202,22 @@ export default function AdminSkills() {
                   id="short-desc"
                   value={formData.short_description}
                   onChange={(e) => setFormData({ ...formData, short_description: e.target.value })}
-                  placeholder="Brief overview of the skill"
+                  placeholder="Brief one-line description"
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="long-desc">Detailed Instructions</Label>
+                <Label htmlFor="long-desc">Long Description</Label>
                 <Textarea
                   id="long-desc"
+                  rows={6}
                   value={formData.long_description}
                   onChange={(e) => setFormData({ ...formData, long_description: e.target.value })}
-                  placeholder="Step-by-step training instructions..."
-                  rows={6}
+                  placeholder="Detailed description of the skill..."
                 />
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleSave}>Save Skill</Button>
+              <Button onClick={handleSave}>Create Skill</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -269,105 +226,77 @@ export default function AdminSkills() {
       <Card>
         <CardHeader>
           <CardTitle>Skills Library</CardTitle>
-          <CardDescription>Browse and manage all training skills</CardDescription>
+          <CardDescription>
+            Click on a skill to view and edit details
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          {/* Filters */}
           <div className="mb-4 flex gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search skills..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9"
-                />
-              </div>
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search skills..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
             </div>
             <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-[200px]">
                 <SelectValue placeholder="Filter by category" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Categories</SelectItem>
                 <SelectItem value="foundation">Foundation</SelectItem>
                 <SelectItem value="obedience">Obedience</SelectItem>
-                <SelectItem value="trick">Tricks</SelectItem>
+                <SelectItem value="tricks">Tricks</SelectItem>
                 <SelectItem value="behavior">Behavior</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          {/* Table */}
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Difficulty</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
+          {loading ? (
+            <p className="text-muted-foreground">Loading...</p>
+          ) : (
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center">
-                    Loading skills...
-                  </TableCell>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Difficulty</TableHead>
+                  <TableHead>Description</TableHead>
                 </TableRow>
-              ) : skills.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center">
-                    No skills found
-                  </TableCell>
-                </TableRow>
-              ) : (
-                skills.map((skill) => (
-                  <TableRow key={skill.id}>
-                    <TableCell className="font-medium">{skill.name}</TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">{skill.skill_type || "foundation"}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-1">
-                        {[...Array(5)].map((_, i) => (
-                          <div
-                            key={i}
-                            className={`h-2 w-2 rounded-full ${
-                              i < skill.difficulty_level ? "bg-primary" : "bg-muted"
-                            }`}
-                          />
-                        ))}
-                      </div>
-                    </TableCell>
-                    <TableCell className="max-w-md truncate text-muted-foreground">
-                      {skill.short_description || "-"}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => openEditDialog(skill)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDelete(skill.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+              </TableHeader>
+              <TableBody>
+                {skills.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center text-muted-foreground">
+                      No skills found
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                ) : (
+                  skills.map((skill) => (
+                    <TableRow 
+                      key={skill.id} 
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => handleRowClick(skill.id)}
+                    >
+                      <TableCell className="font-medium">{skill.name}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{skill.skill_type || "N/A"}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">{skill.difficulty_level}/5</Badge>
+                      </TableCell>
+                      <TableCell className="max-w-md truncate">
+                        {skill.short_description || "N/A"}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
     </div>
