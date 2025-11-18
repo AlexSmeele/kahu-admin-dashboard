@@ -86,36 +86,42 @@ export default function AdminOverview() {
       value: metrics?.totalUsers || 0,
       description: "Registered users",
       icon: Users,
+      color: "text-primary" as const,
     },
     {
       title: "New Users (7d)",
       value: metrics?.newUsersLast7Days || 0,
       description: "Last 7 days",
       icon: Activity,
+      color: "text-success" as const,
     },
     {
       title: "New Users (30d)",
       value: metrics?.newUsersLast30Days || 0,
       description: "Last 30 days",
       icon: Activity,
+      color: "text-info" as const,
     },
     {
       title: "Total Dogs",
       value: metrics?.totalDogs || 0,
       description: "Dogs in system",
       icon: Dog,
+      color: "text-secondary" as const,
     },
     {
       title: "Total Skills",
       value: metrics?.totalSkills || 0,
       description: "Training skills",
       icon: GraduationCap,
+      color: "text-accent" as const,
     },
     {
       title: "Active Training",
       value: metrics?.activeTrainingSessions || 0,
       description: "In progress",
       icon: Activity,
+      color: "text-warning" as const,
     },
   ];
 
@@ -128,10 +134,10 @@ export default function AdminOverview() {
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {metricCards.map((card) => (
-          <Card key={card.title}>
+          <Card key={card.title} className="hover:border-primary/40 transition-colors">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">{card.title}</CardTitle>
-              <card.icon className="h-4 w-4 text-muted-foreground" />
+              <card.icon className={`h-4 w-4 ${card.color}`} />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{card.value}</div>
@@ -142,7 +148,7 @@ export default function AdminOverview() {
       </div>
 
       <div className="mt-8 grid gap-4 md:grid-cols-2">
-        <Card>
+        <Card className="border-primary/20">
           <CardHeader>
             <CardTitle>Recent Activity</CardTitle>
             <CardDescription>Latest user signups and activity</CardDescription>
@@ -152,7 +158,7 @@ export default function AdminOverview() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-primary/20">
           <CardHeader>
             <CardTitle>System Health</CardTitle>
             <CardDescription>Database and system status</CardDescription>
@@ -161,15 +167,15 @@ export default function AdminOverview() {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-sm">Database</span>
-                <span className="text-sm font-medium text-green-600">✓ Operational</span>
+                <span className="text-sm font-medium text-success">✓ Operational</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm">Authentication</span>
-                <span className="text-sm font-medium text-green-600">✓ Operational</span>
+                <span className="text-sm font-medium text-success">✓ Operational</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm">Storage</span>
-                <span className="text-sm font-medium text-green-600">✓ Operational</span>
+                <span className="text-sm font-medium text-success">✓ Operational</span>
               </div>
             </div>
           </CardContent>

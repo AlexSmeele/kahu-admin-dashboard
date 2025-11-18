@@ -14,11 +14,11 @@ export default function AdminSystem() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Database</CardTitle>
-            <Database className="h-4 w-4 text-muted-foreground" />
+            <Database className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              <Badge variant="default" className="bg-green-600">Operational</Badge>
+              <Badge variant="default" className="bg-success hover:bg-success">Operational</Badge>
             </div>
             <p className="text-xs text-muted-foreground mt-1">All systems normal</p>
           </CardContent>
@@ -27,11 +27,11 @@ export default function AdminSystem() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Authentication</CardTitle>
-            <Lock className="h-4 w-4 text-muted-foreground" />
+            <Lock className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              <Badge variant="default" className="bg-green-600">Operational</Badge>
+              <Badge variant="default" className="bg-success hover:bg-success">Operational</Badge>
             </div>
             <p className="text-xs text-muted-foreground mt-1">Auth service active</p>
           </CardContent>
@@ -40,11 +40,11 @@ export default function AdminSystem() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Storage</CardTitle>
-            <HardDrive className="h-4 w-4 text-muted-foreground" />
+            <HardDrive className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              <Badge variant="default" className="bg-green-600">Operational</Badge>
+              <Badge variant="default" className="bg-success hover:bg-success">Operational</Badge>
             </div>
             <p className="text-xs text-muted-foreground mt-1">Media storage OK</p>
           </CardContent>
@@ -53,11 +53,11 @@ export default function AdminSystem() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">API</CardTitle>
-            <Activity className="h-4 w-4 text-muted-foreground" />
+            <Activity className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              <Badge variant="default" className="bg-green-600">Operational</Badge>
+              <Badge variant="default" className="bg-success hover:bg-success">Operational</Badge>
             </div>
             <p className="text-xs text-muted-foreground mt-1">All endpoints responsive</p>
           </CardContent>
