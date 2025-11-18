@@ -13,18 +13,40 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, Pencil, Trash2, Save, Upload } from "lucide-react";
+import { ArrowLeft, Pencil, Trash2, Save } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 interface Skill {
   id: string;
   name: string;
   category: string[];
   difficulty_level: number;
+  estimated_time_weeks: number | null;
+  prerequisites: string[] | null;
+  priority_order: number | null;
+  min_age_weeks: number | null;
   skill_type: string | null;
+  recommended_practice_frequency_days: number | null;
   short_description: string | null;
   long_description: string | null;
+  brief_instructions: any | null;
+  detailed_instructions: any | null;
+  general_tips: string | null;
+  troubleshooting: string | null;
+  preparation_tips: string | null;
+  training_insights: string | null;
+  achievement_levels: any | null;
+  ideal_stage_timeline: any | null;
+  criteria: any | null;
+  pass_criteria: string | null;
+  fail_criteria: string | null;
+  mastery_criteria: string | null;
   video_url: string | null;
   created_at: string;
 }
@@ -36,15 +58,7 @@ export default function SkillDetail() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [formData, setFormData] = useState({
-    name: "",
-    category: ["foundation"],
-    difficulty_level: 1,
-    skill_type: "foundation",
-    short_description: "",
-    long_description: "",
-    video_url: "",
-  });
+  const [formData, setFormData] = useState<Partial<Skill>>({});
 
   useEffect(() => {
     loadSkill();
@@ -64,15 +78,7 @@ export default function SkillDetail() {
       if (error) throw error;
 
       setSkill(data);
-      setFormData({
-        name: data.name,
-        category: data.category || ["foundation"],
-        difficulty_level: data.difficulty_level,
-        skill_type: data.skill_type || "foundation",
-        short_description: data.short_description || "",
-        long_description: data.long_description || "",
-        video_url: data.video_url || "",
-      });
+      setFormData(data);
     } catch (error) {
       console.error("Error loading skill:", error);
       toast.error("Failed to load skill");
@@ -137,13 +143,13 @@ export default function SkillDetail() {
 
       if (uploadError) throw uploadError;
 
-      const { data: { publicUrl } } = supabase.storage
+      const { data: urlData } = supabase.storage
         .from("media-assets")
         .getPublicUrl(filePath);
 
       const { error: updateError } = await supabase
         .from("skills")
-        .update({ video_url: publicUrl })
+        .update({ video_url: urlData.publicUrl })
         .eq("id", id);
 
       if (updateError) throw updateError;
@@ -161,7 +167,7 @@ export default function SkillDetail() {
   if (loading) {
     return (
       <div className="p-8">
-        <p className="text-muted-foreground">Loading...</p>
+        <div className="text-center">Loading...</div>
       </div>
     );
   }
@@ -169,7 +175,7 @@ export default function SkillDetail() {
   if (!skill) {
     return (
       <div className="p-8">
-        <p className="text-muted-foreground">Skill not found</p>
+        <div className="text-center">Skill not found</div>
       </div>
     );
   }
@@ -183,27 +189,11 @@ export default function SkillDetail() {
           </Button>
           <div>
             <h1 className="text-3xl font-bold">{skill.name}</h1>
-            <div className="flex gap-2 mt-2">
-              {skill.category?.map((cat) => (
-                <Badge key={cat} variant="secondary">
-                  {cat}
-                </Badge>
-              ))}
-            </div>
+            <p className="text-muted-foreground">Skill Details</p>
           </div>
         </div>
         <div className="flex gap-2">
-          {editing ? (
-            <>
-              <Button variant="outline" onClick={() => setEditing(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleSave}>
-                <Save className="mr-2 h-4 w-4" />
-                Save
-              </Button>
-            </>
-          ) : (
+          {!editing ? (
             <>
               <Button variant="outline" onClick={() => setEditing(true)}>
                 <Pencil className="mr-2 h-4 w-4" />
@@ -214,34 +204,44 @@ export default function SkillDetail() {
                 Delete
               </Button>
             </>
+          ) : (
+            <>
+              <Button variant="outline" onClick={() => { setEditing(false); setFormData(skill); }}>
+                Cancel
+              </Button>
+              <Button onClick={handleSave}>
+                <Save className="mr-2 h-4 w-4" />
+                Save
+              </Button>
+            </>
           )}
         </div>
       </div>
 
-      <div className="grid gap-6">
+      <div className="space-y-6">
+        {/* Basic Information */}
         <Card>
           <CardHeader>
             <CardTitle>Basic Information</CardTitle>
           </CardHeader>
-          <CardContent className="grid gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="name">Skill Name</Label>
-              {editing ? (
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                />
-              ) : (
-                <p className="text-foreground">{skill.name}</p>
-              )}
-            </div>
+          <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="type">Skill Type</Label>
+              <div className="space-y-2">
+                <Label>Name</Label>
+                {editing ? (
+                  <Input
+                    value={formData.name || ""}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  />
+                ) : (
+                  <div className="text-sm">{skill.name}</div>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label>Skill Type</Label>
                 {editing ? (
                   <Select
-                    value={formData.skill_type || "foundation"}
+                    value={formData.skill_type || ""}
                     onValueChange={(value) => setFormData({ ...formData, skill_type: value })}
                   >
                     <SelectTrigger>
@@ -249,98 +249,318 @@ export default function SkillDetail() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="foundation">Foundation</SelectItem>
-                      <SelectItem value="obedience">Obedience</SelectItem>
                       <SelectItem value="trick">Trick</SelectItem>
                       <SelectItem value="behavior">Behavior</SelectItem>
                     </SelectContent>
                   </Select>
                 ) : (
-                  <p className="text-foreground">{skill.skill_type || "N/A"}</p>
+                  <div className="text-sm">{skill.skill_type}</div>
                 )}
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="difficulty">Difficulty (1-5)</Label>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label>Difficulty Level</Label>
                 {editing ? (
-                  <Input
-                    id="difficulty"
-                    type="number"
-                    min="1"
-                    max="5"
-                    value={formData.difficulty_level}
-                    onChange={(e) =>
-                      setFormData({ ...formData, difficulty_level: parseInt(e.target.value) || 1 })
-                    }
-                  />
+                  <Select
+                    value={String(formData.difficulty_level)}
+                    onValueChange={(value) => setFormData({ ...formData, difficulty_level: parseInt(value) })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[1, 2, 3, 4, 5].map((level) => (
+                        <SelectItem key={level} value={String(level)}>
+                          Level {level}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 ) : (
-                  <p className="text-foreground">{skill.difficulty_level}</p>
+                  <Badge variant="outline">Level {skill.difficulty_level}</Badge>
                 )}
+              </div>
+              <div className="space-y-2">
+                <Label>Priority Order</Label>
+                <Badge variant="secondary">{skill.priority_order || "Not set"}</Badge>
+              </div>
+              <div className="space-y-2">
+                <Label>Categories</Label>
+                <div className="flex flex-wrap gap-1">
+                  {skill.category?.map((cat) => (
+                    <Badge key={cat} variant="outline">{cat}</Badge>
+                  ))}
+                </div>
               </div>
             </div>
           </CardContent>
         </Card>
 
+        {/* Time & Requirements */}
         <Card>
           <CardHeader>
-            <CardTitle>Description</CardTitle>
+            <CardTitle>Time & Requirements</CardTitle>
           </CardHeader>
-          <CardContent className="grid gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="short-desc">Short Description</Label>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Estimated Time (weeks)</Label>
+                {editing ? (
+                  <Input
+                    type="number"
+                    value={formData.estimated_time_weeks || ""}
+                    onChange={(e) => setFormData({ ...formData, estimated_time_weeks: parseInt(e.target.value) || null })}
+                  />
+                ) : (
+                  <div className="text-sm">{skill.estimated_time_weeks || "Not specified"}</div>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label>Minimum Age (weeks)</Label>
+                {editing ? (
+                  <Input
+                    type="number"
+                    value={formData.min_age_weeks || ""}
+                    onChange={(e) => setFormData({ ...formData, min_age_weeks: parseInt(e.target.value) || null })}
+                  />
+                ) : (
+                  <div className="text-sm">{skill.min_age_weeks || "Not specified"}</div>
+                )}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Recommended Practice Frequency (days)</Label>
               {editing ? (
                 <Input
-                  id="short-desc"
-                  value={formData.short_description}
+                  type="number"
+                  value={formData.recommended_practice_frequency_days || ""}
+                  onChange={(e) => setFormData({ ...formData, recommended_practice_frequency_days: parseInt(e.target.value) || null })}
+                />
+              ) : (
+                <div className="text-sm">{skill.recommended_practice_frequency_days || "Not specified"}</div>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label>Prerequisites</Label>
+              {editing ? (
+                <Textarea
+                  value={formData.prerequisites?.join(", ") || ""}
+                  onChange={(e) => setFormData({ ...formData, prerequisites: e.target.value.split(",").map(s => s.trim()).filter(Boolean) })}
+                  placeholder="Comma-separated skill IDs"
+                />
+              ) : (
+                <div className="flex flex-wrap gap-1">
+                  {skill.prerequisites?.length ? (
+                    skill.prerequisites.map((prereq) => (
+                      <Badge key={prereq} variant="secondary">{prereq}</Badge>
+                    ))
+                  ) : (
+                    <span className="text-sm text-muted-foreground">None</span>
+                  )}
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Descriptions */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Descriptions</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label>Short Description</Label>
+              {editing ? (
+                <Input
+                  value={formData.short_description || ""}
                   onChange={(e) => setFormData({ ...formData, short_description: e.target.value })}
                 />
               ) : (
-                <p className="text-foreground">{skill.short_description || "N/A"}</p>
+                <div className="text-sm">{skill.short_description || "N/A"}</div>
               )}
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="long-desc">Long Description</Label>
+            <div className="space-y-2">
+              <Label>Long Description</Label>
               {editing ? (
                 <Textarea
-                  id="long-desc"
-                  rows={6}
-                  value={formData.long_description}
+                  rows={3}
+                  value={formData.long_description || ""}
                   onChange={(e) => setFormData({ ...formData, long_description: e.target.value })}
                 />
               ) : (
-                <p className="text-foreground whitespace-pre-wrap">{skill.long_description || "N/A"}</p>
+                <div className="text-sm">{skill.long_description || "N/A"}</div>
               )}
             </div>
           </CardContent>
         </Card>
 
+        {/* Instructions */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Instructions</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label>Brief Instructions</Label>
+              {editing ? (
+                <Textarea
+                  rows={3}
+                  value={formData.brief_instructions || ""}
+                  onChange={(e) => setFormData({ ...formData, brief_instructions: e.target.value })}
+                />
+              ) : (
+                <div className="text-sm">{skill.brief_instructions || "N/A"}</div>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label>Detailed Instructions</Label>
+              {editing ? (
+                <Textarea
+                  rows={5}
+                  value={formData.detailed_instructions || ""}
+                  onChange={(e) => setFormData({ ...formData, detailed_instructions: e.target.value })}
+                />
+              ) : (
+                <div className="text-sm">{skill.detailed_instructions || "N/A"}</div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Tips & Troubleshooting */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Tips & Troubleshooting</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label>General Tips</Label>
+              {editing ? (
+                <Textarea
+                  rows={3}
+                  value={formData.general_tips || ""}
+                  onChange={(e) => setFormData({ ...formData, general_tips: e.target.value })}
+                />
+              ) : (
+                <div className="text-sm">{skill.general_tips || "N/A"}</div>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label>Troubleshooting</Label>
+              {editing ? (
+                <Textarea
+                  rows={3}
+                  value={formData.troubleshooting || ""}
+                  onChange={(e) => setFormData({ ...formData, troubleshooting: e.target.value })}
+                />
+              ) : (
+                <div className="text-sm">{skill.troubleshooting || "N/A"}</div>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label>Preparation Tips</Label>
+              {editing ? (
+                <Textarea
+                  rows={3}
+                  value={formData.preparation_tips || ""}
+                  onChange={(e) => setFormData({ ...formData, preparation_tips: e.target.value })}
+                />
+              ) : (
+                <div className="text-sm">{skill.preparation_tips || "N/A"}</div>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label>Training Insights</Label>
+              {editing ? (
+                <Textarea
+                  rows={3}
+                  value={formData.training_insights || ""}
+                  onChange={(e) => setFormData({ ...formData, training_insights: e.target.value })}
+                />
+              ) : (
+                <div className="text-sm">{skill.training_insights || "N/A"}</div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Mastery Criteria */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Mastery Criteria</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label>Pass Criteria</Label>
+              {editing ? (
+                <Textarea
+                  rows={3}
+                  value={formData.pass_criteria || ""}
+                  onChange={(e) => setFormData({ ...formData, pass_criteria: e.target.value })}
+                />
+              ) : (
+                <div className="text-sm">{skill.pass_criteria || "N/A"}</div>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label>Fail Criteria</Label>
+              {editing ? (
+                <Textarea
+                  rows={3}
+                  value={formData.fail_criteria || ""}
+                  onChange={(e) => setFormData({ ...formData, fail_criteria: e.target.value })}
+                />
+              ) : (
+                <div className="text-sm">{skill.fail_criteria || "N/A"}</div>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label>Mastery Criteria</Label>
+              {editing ? (
+                <Textarea
+                  rows={3}
+                  value={formData.mastery_criteria || ""}
+                  onChange={(e) => setFormData({ ...formData, mastery_criteria: e.target.value })}
+                />
+              ) : (
+                <div className="text-sm">{skill.mastery_criteria || "N/A"}</div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Video */}
         <Card>
           <CardHeader>
             <CardTitle>Video</CardTitle>
           </CardHeader>
-          <CardContent className="grid gap-4">
+          <CardContent className="space-y-4">
             {skill.video_url && (
-              <div className="aspect-video bg-muted rounded-lg overflow-hidden">
+              <div className="aspect-video w-full overflow-hidden rounded-lg bg-muted">
                 <video
                   src={skill.video_url}
                   controls
-                  className="w-full h-full object-contain"
-                >
-                  Your browser does not support the video tag.
-                </video>
+                  className="h-full w-full object-contain"
+                />
               </div>
             )}
-            <div className="grid gap-2">
-              <Label htmlFor="video">Upload Video</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="video"
-                  type="file"
-                  accept="video/*"
-                  onChange={handleVideoUpload}
-                  disabled={uploading}
-                />
-                {uploading && <p className="text-sm text-muted-foreground">Uploading...</p>}
+            {editing && (
+              <div>
+                <Label htmlFor="video-upload">Upload Video</Label>
+                <div className="mt-2 flex items-center gap-2">
+                  <Input
+                    id="video-upload"
+                    type="file"
+                    accept="video/*"
+                    onChange={handleVideoUpload}
+                    disabled={uploading}
+                  />
+                  {uploading && <span className="text-sm text-muted-foreground">Uploading...</span>}
+                </div>
               </div>
-            </div>
+            )}
           </CardContent>
         </Card>
       </div>
