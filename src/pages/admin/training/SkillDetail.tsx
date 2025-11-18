@@ -21,6 +21,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { StepsEditor } from "@/components/admin/training/StepsEditor";
 
 interface Skill {
   id: string;
@@ -63,6 +64,20 @@ export default function SkillDetail() {
   useEffect(() => {
     loadSkill();
   }, [id]);
+
+  const parseInstructions = (instructions: any): string[] => {
+    if (!instructions) return [];
+    if (Array.isArray(instructions)) return instructions;
+    if (typeof instructions === 'string') {
+      try {
+        const parsed = JSON.parse(instructions);
+        return Array.isArray(parsed) ? parsed : [instructions];
+      } catch {
+        return [instructions];
+      }
+    }
+    return [];
+  };
 
   const loadSkill = async () => {
     if (!id) return;
@@ -283,7 +298,24 @@ export default function SkillDetail() {
               </div>
               <div className="space-y-2">
                 <Label>Priority Order</Label>
-                <Badge variant="secondary">{skill.priority_order || "Not set"}</Badge>
+                {editing ? (
+                  <div className="space-y-1">
+                    <Input
+                      type="number"
+                      min="1"
+                      value={formData.priority_order || ""}
+                      onChange={(e) => setFormData({ 
+                        ...formData, 
+                        priority_order: parseInt(e.target.value) || null 
+                      })}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      1 = most basic skill, higher numbers = more advanced
+                    </p>
+                  </div>
+                ) : (
+                  <Badge variant="secondary">{skill.priority_order || "Not set"}</Badge>
+                )}
               </div>
               <div className="space-y-2">
                 <Label>Categories</Label>
@@ -401,31 +433,22 @@ export default function SkillDetail() {
           <CardHeader>
             <CardTitle>Instructions</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>Brief Instructions</Label>
-              {editing ? (
-                <Textarea
-                  rows={3}
-                  value={formData.brief_instructions || ""}
-                  onChange={(e) => setFormData({ ...formData, brief_instructions: e.target.value })}
-                />
-              ) : (
-                <div className="text-sm">{skill.brief_instructions || "N/A"}</div>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label>Detailed Instructions</Label>
-              {editing ? (
-                <Textarea
-                  rows={5}
-                  value={formData.detailed_instructions || ""}
-                  onChange={(e) => setFormData({ ...formData, detailed_instructions: e.target.value })}
-                />
-              ) : (
-                <div className="text-sm">{skill.detailed_instructions || "N/A"}</div>
-              )}
-            </div>
+          <CardContent className="space-y-6">
+            <StepsEditor
+              steps={parseInstructions(formData.brief_instructions)}
+              onChange={(steps) => setFormData({ ...formData, brief_instructions: steps })}
+              editing={editing}
+              label="Brief Instructions"
+              placeholder="Enter a brief instruction step..."
+            />
+            
+            <StepsEditor
+              steps={parseInstructions(formData.detailed_instructions)}
+              onChange={(steps) => setFormData({ ...formData, detailed_instructions: steps })}
+              editing={editing}
+              label="Detailed Instructions"
+              placeholder="Enter a detailed instruction step..."
+            />
           </CardContent>
         </Card>
 
