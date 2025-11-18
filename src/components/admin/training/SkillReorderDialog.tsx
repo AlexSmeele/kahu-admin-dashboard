@@ -74,22 +74,30 @@ export function SkillReorderDialog({ open, onOpenChange, onReorderComplete }: Sk
   const handleSave = async () => {
     setSaving(true);
     try {
-      // Update all skills with new priority_order values
-      const updates = skills.map((skill, index) => ({
-        id: skill.id,
-        priority_order: index + 1,
-      }));
+      let successCount = 0;
+      let errorCount = 0;
 
-      for (const update of updates) {
+      // Update priority_order for all skills with minimal payload
+      for (let i = 0; i < skills.length; i++) {
         const { error } = await supabase
           .from("skills")
-          .update({ priority_order: update.priority_order })
-          .eq("id", update.id);
+          .update({ priority_order: i + 1 })
+          .eq("id", skills[i].id);
 
-        if (error) throw error;
+        if (error) {
+          console.error(`Error updating skill ${skills[i].id}:`, error);
+          errorCount++;
+        } else {
+          successCount++;
+        }
       }
 
-      toast.success("Skill order updated successfully");
+      if (errorCount > 0) {
+        toast.error(`Failed to update ${errorCount} skill(s). ${successCount} updated successfully.`);
+      } else {
+        toast.success("Skill order updated successfully");
+      }
+
       onReorderComplete();
       onOpenChange(false);
     } catch (error) {
