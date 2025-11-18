@@ -3,14 +3,33 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { supabase } from "@/integrations/supabase/client";
-import { Upload, Trash2, ArrowUp, ArrowDown, Loader2 } from "lucide-react";
+import { Upload, Trash2, ArrowUp, ArrowDown, Loader2, X, Plus, Check } from "lucide-react";
 import { toast } from "sonner";
 
 interface ImageData {
   url: string;
   order: number;
+  tags?: string[];
 }
+
+const PREDEFINED_TAGS = [
+  "Primary image",
+  "Step 1",
+  "Step 2",
+  "Step 3",
+  "Step 4",
+  "Step 5",
+  "Step 6",
+  "Step 7",
+  "Step 8",
+  "Before",
+  "After",
+  "Example",
+];
 
 interface ImageManagerProps {
   images: ImageData[];
@@ -21,6 +40,8 @@ interface ImageManagerProps {
 
 export function ImageManager({ images, onChange, editing, skillId }: ImageManagerProps) {
   const [uploading, setUploading] = useState(false);
+  const [tagInputs, setTagInputs] = useState<{ [key: number]: string }>({});
+  const [tagPopovers, setTagPopovers] = useState<{ [key: number]: boolean }>({});
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -57,6 +78,7 @@ export function ImageManager({ images, onChange, editing, skillId }: ImageManage
       const newImage: ImageData = {
         url: publicUrl,
         order: images.length,
+        tags: [],
       };
 
       onChange([...images, newImage]);
@@ -113,6 +135,38 @@ export function ImageManager({ images, onChange, editing, skillId }: ImageManage
     onChange(newImages);
   };
 
+  const isTagUsedOnOtherImage = (tag: string, currentIndex: number): boolean => {
+    return images.some((img, idx) => idx !== currentIndex && img.tags?.includes(tag));
+  };
+
+  const handleAddTag = (index: number, tag: string) => {
+    const trimmedTag = tag.trim();
+    if (!trimmedTag) return;
+
+    if (isTagUsedOnOtherImage(trimmedTag, index)) {
+      toast.error(`Tag "${trimmedTag}" is already used on another image`);
+      return;
+    }
+
+    const newImages = [...images];
+    if (!newImages[index].tags) {
+      newImages[index].tags = [];
+    }
+    
+    if (!newImages[index].tags!.includes(trimmedTag)) {
+      newImages[index].tags!.push(trimmedTag);
+      onChange(newImages);
+      setTagInputs({ ...tagInputs, [index]: "" });
+      setTagPopovers({ ...tagPopovers, [index]: false });
+    }
+  };
+
+  const handleRemoveTag = (index: number, tag: string) => {
+    const newImages = [...images];
+    newImages[index].tags = newImages[index].tags?.filter(t => t !== tag) || [];
+    onChange(newImages);
+  };
+
   if (!editing) {
     return (
       <div className="space-y-2">
@@ -128,8 +182,19 @@ export function ImageManager({ images, onChange, editing, skillId }: ImageManage
                     alt={`Skill image ${index + 1}`}
                     className="w-full h-48 object-cover"
                   />
-                  <div className="p-2 text-xs text-center text-muted-foreground">
-                    Image {index + 1}
+                  <div className="p-2">
+                    <div className="text-xs text-center text-muted-foreground mb-1">
+                      Image {index + 1}
+                    </div>
+                    {image.tags && image.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1 justify-center">
+                        {image.tags.map((tag) => (
+                          <Badge key={tag} variant="secondary" className="text-xs">
+                            {tag}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </Card>
               ))}
@@ -151,17 +216,96 @@ export function ImageManager({ images, onChange, editing, skillId }: ImageManage
             .sort((a, b) => a.order - b.order)
             .map((image, index) => (
               <Card key={index} className="p-3">
-                <div className="flex items-center gap-3">
+                <div className="flex items-start gap-3">
                   <img
                     src={image.url}
                     alt={`Image ${index + 1}`}
-                    className="w-24 h-24 object-cover rounded"
+                    className="w-24 h-24 object-cover rounded flex-shrink-0"
                   />
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium">Image {index + 1}</p>
-                    <p className="text-xs text-muted-foreground">Order: {index + 1}</p>
+                    <p className="text-xs text-muted-foreground mb-2">Order: {index + 1}</p>
+                    
+                    {/* Tags */}
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap gap-1">
+                        {image.tags?.map((tag) => (
+                          <Badge key={tag} variant="secondary" className="text-xs">
+                            {tag}
+                            <button
+                              onClick={() => handleRemoveTag(index, tag)}
+                              className="ml-1 hover:text-destructive"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </Badge>
+                        ))}
+                      </div>
+                      
+                      <Popover 
+                        open={tagPopovers[index]} 
+                        onOpenChange={(open) => setTagPopovers({ ...tagPopovers, [index]: open })}
+                      >
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" size="sm" className="h-7 text-xs">
+                            <Plus className="h-3 w-3 mr-1" />
+                            Add Tag
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-64 p-0" align="start">
+                          <Command>
+                            <CommandInput 
+                              placeholder="Search or type tag..." 
+                              value={tagInputs[index] || ""}
+                              onValueChange={(value) => setTagInputs({ ...tagInputs, [index]: value })}
+                            />
+                            <CommandList>
+                              <CommandEmpty>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="w-full"
+                                  onClick={() => {
+                                    if (tagInputs[index]?.trim()) {
+                                      handleAddTag(index, tagInputs[index]);
+                                    }
+                                  }}
+                                >
+                                  <Plus className="h-4 w-4 mr-2" />
+                                  Add "{tagInputs[index]}"
+                                </Button>
+                              </CommandEmpty>
+                              <CommandGroup>
+                                {PREDEFINED_TAGS.filter(tag => 
+                                  !image.tags?.includes(tag) &&
+                                  tag.toLowerCase().includes((tagInputs[index] || "").toLowerCase())
+                                ).map((tag) => {
+                                  const isUsed = isTagUsedOnOtherImage(tag, index);
+                                  return (
+                                    <CommandItem
+                                      key={tag}
+                                      onSelect={() => handleAddTag(index, tag)}
+                                      disabled={isUsed}
+                                      className={isUsed ? "opacity-50" : ""}
+                                    >
+                                      {image.tags?.includes(tag) ? (
+                                        <Check className="h-4 w-4 mr-2" />
+                                      ) : (
+                                        <div className="h-4 w-4 mr-2" />
+                                      )}
+                                      {tag}
+                                      {isUsed && <span className="ml-auto text-xs text-muted-foreground">(used)</span>}
+                                    </CommandItem>
+                                  );
+                                })}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
                   </div>
-                  <div className="flex gap-1">
+                  <div className="flex gap-1 flex-shrink-0">
                     <Button
                       variant="ghost"
                       size="icon"
