@@ -1560,57 +1560,6 @@ export type Database = {
           },
         ]
       }
-      media_assets: {
-        Row: {
-          created_at: string | null
-          description: string | null
-          duration_seconds: number | null
-          file_path: string
-          file_size_bytes: number | null
-          file_url: string
-          id: string
-          is_published: boolean | null
-          media_type: string
-          mime_type: string | null
-          tags: string[] | null
-          thumbnail_url: string | null
-          title: string
-          updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          description?: string | null
-          duration_seconds?: number | null
-          file_path: string
-          file_size_bytes?: number | null
-          file_url: string
-          id?: string
-          is_published?: boolean | null
-          media_type: string
-          mime_type?: string | null
-          tags?: string[] | null
-          thumbnail_url?: string | null
-          title: string
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          description?: string | null
-          duration_seconds?: number | null
-          file_path?: string
-          file_size_bytes?: number | null
-          file_url?: string
-          id?: string
-          is_published?: boolean | null
-          media_type?: string
-          mime_type?: string | null
-          tags?: string[] | null
-          thumbnail_url?: string | null
-          title?: string
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
       medical_treatments: {
         Row: {
           created_at: string
@@ -2547,63 +2496,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      troubleshooting_issues: {
-        Row: {
-          category: string
-          created_at: string | null
-          donts: string | null
-          dos: string | null
-          id: string
-          is_published: boolean | null
-          issue_name: string
-          linked_module_ids: string[] | null
-          linked_skill_ids: string[] | null
-          media_urls: string[] | null
-          problem_description: string
-          recommended_steps: string | null
-          root_causes: string | null
-          severity: string
-          signs: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          category: string
-          created_at?: string | null
-          donts?: string | null
-          dos?: string | null
-          id?: string
-          is_published?: boolean | null
-          issue_name: string
-          linked_module_ids?: string[] | null
-          linked_skill_ids?: string[] | null
-          media_urls?: string[] | null
-          problem_description: string
-          recommended_steps?: string | null
-          root_causes?: string | null
-          severity?: string
-          signs?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          category?: string
-          created_at?: string | null
-          donts?: string | null
-          dos?: string | null
-          id?: string
-          is_published?: boolean | null
-          issue_name?: string
-          linked_module_ids?: string[] | null
-          linked_skill_ids?: string[] | null
-          media_urls?: string[] | null
-          problem_description?: string
-          recommended_steps?: string | null
-          root_causes?: string | null
-          severity?: string
-          signs?: string | null
-          updated_at?: string | null
-        }
-        Relationships: []
       }
       user_breed_recommendations: {
         Row: {

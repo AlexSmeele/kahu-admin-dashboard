@@ -19,7 +19,7 @@ export default function Login() {
     e.preventDefault();
     setLoading(true);
 
-    const { data: authData, error } = await supabase.auth.signInWithPassword({
+    const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
@@ -30,22 +30,8 @@ export default function Login() {
       return;
     }
 
-    // Check if user has admin role
-    if (authData.user) {
-      const { data: isAdmin } = await supabase
-        .rpc("has_role", { _user_id: authData.user.id, _role: "admin" });
-
-      if (isAdmin) {
-        toast.success("Logged in successfully");
-        navigate(redirect);
-      } else {
-        // Non-admin users - sign them out and show error
-        await supabase.auth.signOut();
-        toast.error("Admin access required. Please contact support if you need admin access.");
-        setLoading(false);
-        return;
-      }
-    }
+    toast.success("Logged in successfully");
+    navigate(redirect);
   };
 
   const handleGoogleLogin = async () => {

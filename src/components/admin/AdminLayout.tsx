@@ -124,21 +124,21 @@ export function AdminLayout() {
           {!collapsed && (
             <div className="flex flex-col">
               <h1 className="text-lg font-bold text-sidebar-foreground">Kahu Admin</h1>
-              <p className="text-xs text-sidebar-foreground/60">Dashboard</p>
+              <span className="text-xs text-muted-foreground">Dashboard</span>
             </div>
           )}
           <Button
             variant="ghost"
             size="icon"
             onClick={() => setCollapsed(!collapsed)}
-            className="h-8 w-8 text-sidebar-foreground hover:bg-sidebar-accent"
+            className="ml-auto"
           >
             {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
           </Button>
         </div>
 
         {/* Navigation */}
-        <ScrollArea className="flex-1 px-3 py-4">
+        <ScrollArea className="flex-1 px-2 py-4">
           <nav className="space-y-1">
             {navigation.map((item) => (
               <NavSection key={item.href} item={item} collapsed={collapsed} location={location} />
@@ -146,31 +146,27 @@ export function AdminLayout() {
           </nav>
         </ScrollArea>
 
-        <Separator />
-
         {/* User section */}
-        <div className="p-4">
-          <div className={cn("flex items-center gap-3", collapsed && "justify-center")}>
-            {!collapsed && (
-              <div className="flex-1 overflow-hidden">
-                <p className="text-sm font-medium text-sidebar-foreground truncate">{userEmail}</p>
-                <p className="text-xs text-sidebar-foreground/60">Admin</p>
-              </div>
-            )}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleSignOut}
-              className="h-8 w-8 shrink-0 text-sidebar-foreground hover:bg-sidebar-accent"
-              title="Sign out"
-            >
-              <LogOut className="h-4 w-4" />
-            </Button>
-          </div>
+        <div className="border-t p-4">
+          {!collapsed && (
+            <div className="mb-2 text-sm text-sidebar-foreground">
+              <div className="font-medium">{userEmail}</div>
+              <div className="text-xs text-muted-foreground">Administrator</div>
+            </div>
+          )}
+          <Button
+            variant="ghost"
+            size={collapsed ? "icon" : "sm"}
+            onClick={handleSignOut}
+            className="w-full justify-start"
+          >
+            <LogOut className="h-4 w-4" />
+            {!collapsed && <span className="ml-2">Sign Out</span>}
+          </Button>
         </div>
       </aside>
 
-      {/* Main content */}
+      {/* Main Content */}
       <main className="flex-1 overflow-auto">
         <Outlet />
       </main>
@@ -179,9 +175,9 @@ export function AdminLayout() {
 }
 
 function NavSection({ item, collapsed, location }: { item: NavItem; collapsed: boolean; location: any }) {
-  const [expanded, setExpanded] = useState(false);
-  const isActive = location.pathname === item.href || 
-                   (item.children && item.children.some(child => location.pathname === child.href));
+  const [expanded, setExpanded] = useState(true);
+  const isActive = location.pathname === item.href;
+  const hasActiveChild = item.children?.some((child) => location.pathname === child.href);
 
   if (item.children) {
     return (
@@ -189,24 +185,23 @@ function NavSection({ item, collapsed, location }: { item: NavItem; collapsed: b
         <button
           onClick={() => setExpanded(!expanded)}
           className={cn(
-            "flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+            "flex w-full items-center rounded-md px-3 py-2 text-sm font-medium transition-colors",
             "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-            isActive && "bg-sidebar-accent text-sidebar-accent-foreground",
-            collapsed && "justify-center"
+            (isActive || hasActiveChild) && "bg-sidebar-accent text-sidebar-accent-foreground"
           )}
         >
           <item.icon className="h-4 w-4 shrink-0" />
           {!collapsed && (
             <>
-              <span className="flex-1 text-left">{item.title}</span>
+              <span className="ml-3 flex-1 text-left">{item.title}</span>
               <ChevronRight className={cn("h-4 w-4 transition-transform", expanded && "rotate-90")} />
             </>
           )}
         </button>
         {!collapsed && expanded && (
-          <div className="ml-4 mt-1 space-y-1 border-l border-sidebar-border pl-2">
+          <div className="ml-4 mt-1 space-y-1">
             {item.children.map((child) => (
-              <NavLink key={child.href} item={child} location={location} collapsed={collapsed} />
+              <NavLink key={child.href} item={child} location={location} />
             ))}
           </div>
         )}
@@ -217,22 +212,20 @@ function NavSection({ item, collapsed, location }: { item: NavItem; collapsed: b
   return <NavLink item={item} location={location} collapsed={collapsed} />;
 }
 
-function NavLink({ item, location, collapsed }: { item: NavItem; location: any; collapsed: boolean }) {
+function NavLink({ item, location, collapsed = false }: { item: NavItem; location: any; collapsed?: boolean }) {
   const isActive = location.pathname === item.href;
 
   return (
     <Link
       to={item.href}
       className={cn(
-        "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+        "flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors",
         "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-        isActive && "bg-sidebar-accent text-sidebar-accent-foreground",
-        collapsed && "justify-center"
+        isActive && "bg-sidebar-accent text-sidebar-accent-foreground"
       )}
-      title={collapsed ? item.title : undefined}
     >
       <item.icon className="h-4 w-4 shrink-0" />
-      {!collapsed && <span>{item.title}</span>}
+      {!collapsed && <span className="ml-3">{item.title}</span>}
     </Link>
   );
 }
