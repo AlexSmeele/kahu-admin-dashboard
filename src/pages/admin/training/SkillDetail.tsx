@@ -346,7 +346,9 @@ export default function SkillDetail() {
                     </SelectContent>
                   </Select>
                 ) : (
-                  <Badge variant="outline">Level {skill.difficulty_level}</Badge>
+                  <div>
+                    <Badge variant="outline">Level {skill.difficulty_level}</Badge>
+                  </div>
                 )}
               </div>
               <div className="space-y-2">
@@ -370,7 +372,9 @@ export default function SkillDetail() {
                     </p>
                   </div>
                 ) : (
-                  <Badge variant="secondary">{skill.priority_order || "Not set"}</Badge>
+                  <div>
+                    <Badge variant="secondary">{skill.priority_order || "Not set"}</Badge>
+                  </div>
                 )}
               </div>
             </div>
