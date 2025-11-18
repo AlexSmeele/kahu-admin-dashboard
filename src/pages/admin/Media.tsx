@@ -68,22 +68,22 @@ export default function AdminMedia() {
   });
 
   return (
-    <div className="p-8">
-      <div className="mb-6 flex items-center justify-between">
+    <div className="p-4 md:p-8">
+      <div className="mb-4 md:mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Media Library</h1>
-          <p className="text-muted-foreground">Manage training videos and images</p>
+          <h1 className="text-2xl md:text-3xl font-bold">Media Library</h1>
+          <p className="text-sm md:text-base text-muted-foreground">Manage training videos and images</p>
         </div>
-        <Button onClick={() => setUploadDialogOpen(true)}>
+        <Button onClick={() => setUploadDialogOpen(true)} size="sm" className="w-full sm:w-auto">
           <Upload className="mr-2 h-4 w-4" />
           Upload Media
         </Button>
       </div>
 
-      <Card className="mb-6">
+      <Card className="mb-4 md:mb-6">
         <CardHeader>
-          <CardTitle>Search Media</CardTitle>
-          <CardDescription>Filter by title or description</CardDescription>
+          <CardTitle className="text-base md:text-lg">Search Media</CardTitle>
+          <CardDescription className="text-xs md:text-sm">Filter by title or description</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="relative">
@@ -103,7 +103,7 @@ export default function AdminMedia() {
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
       ) : mediaAssets && mediaAssets.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
           {mediaAssets.map((media) => (
             <MediaCard
               key={media.id}

@@ -60,9 +60,9 @@ export default function AdminOverview() {
 
   if (loading) {
     return (
-      <div className="p-8">
-        <h1 className="text-3xl font-bold mb-6">Dashboard Overview</h1>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="p-4 md:p-8">
+        <h1 className="text-2xl md:text-3xl font-bold mb-4 md:mb-6">Dashboard Overview</h1>
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
           {[...Array(6)].map((_, i) => (
             <Card key={i}>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -126,56 +126,56 @@ export default function AdminOverview() {
   ];
 
   return (
-    <div className="p-8">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold">Dashboard Overview</h1>
-        <p className="text-muted-foreground">Key metrics and system overview</p>
+    <div className="p-4 md:p-8">
+      <div className="mb-4 md:mb-6">
+        <h1 className="text-2xl md:text-3xl font-bold">Dashboard Overview</h1>
+        <p className="text-sm md:text-base text-muted-foreground">Key metrics and system overview</p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         {metricCards.map((card) => (
           <Card key={card.title} className="hover:border-primary/40 transition-colors">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{card.title}</CardTitle>
+              <CardTitle className="text-xs sm:text-sm font-medium">{card.title}</CardTitle>
               <card.icon className={`h-4 w-4 ${card.color}`} />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{card.value}</div>
+              <div className="text-xl sm:text-2xl font-bold">{card.value}</div>
               <p className="text-xs text-muted-foreground">{card.description}</p>
             </CardContent>
           </Card>
         ))}
       </div>
 
-      <div className="mt-8 grid gap-4 md:grid-cols-2">
+      <div className="mt-6 md:mt-8 grid gap-4 grid-cols-1 md:grid-cols-2">
         <Card className="border-primary/20">
           <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
-            <CardDescription>Latest user signups and activity</CardDescription>
+            <CardTitle className="text-base md:text-lg">Recent Activity</CardTitle>
+            <CardDescription className="text-xs md:text-sm">Latest user signups and activity</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-sm text-muted-foreground">Activity feed coming soon...</div>
+            <div className="text-xs md:text-sm text-muted-foreground">Activity feed coming soon...</div>
           </CardContent>
         </Card>
 
         <Card className="border-primary/20">
           <CardHeader>
-            <CardTitle>System Health</CardTitle>
-            <CardDescription>Database and system status</CardDescription>
+            <CardTitle className="text-base md:text-lg">System Health</CardTitle>
+            <CardDescription className="text-xs md:text-sm">Database and system status</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-sm">Database</span>
-                <span className="text-sm font-medium text-success">✓ Operational</span>
+                <span className="text-xs md:text-sm">Database</span>
+                <span className="text-xs md:text-sm font-medium text-success">✓ Operational</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm">Authentication</span>
-                <span className="text-sm font-medium text-success">✓ Operational</span>
+                <span className="text-xs md:text-sm">Authentication</span>
+                <span className="text-xs md:text-sm font-medium text-success">✓ Operational</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm">Storage</span>
-                <span className="text-sm font-medium text-success">✓ Operational</span>
+                <span className="text-xs md:text-sm">Storage</span>
+                <span className="text-xs md:text-sm font-medium text-success">✓ Operational</span>
               </div>
             </div>
           </CardContent>

@@ -15,6 +15,7 @@ import {
   LogOut,
   Moon,
   Sun,
+  Menu,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
@@ -22,6 +23,8 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface NavItem {
   title: string;
@@ -60,11 +63,13 @@ const navigation: NavItem[] = [
 
 export function AdminLayout() {
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [isAuthorized, setIsAuthorized] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     checkAuth();
@@ -114,81 +119,107 @@ export function AdminLayout() {
     );
   }
 
-  return (
-    <div className="flex h-screen w-full overflow-hidden bg-background">
-      {/* Sidebar */}
-      <aside
-        className={cn(
-          "flex flex-col border-r bg-sidebar transition-all duration-300",
-          collapsed ? "w-16" : "w-64"
-        )}
-      >
-        {/* Header */}
-        <div className="flex h-16 items-center justify-between border-b px-4">
-          {!collapsed && (
-            <div className="flex flex-col">
-              <h1 className="text-lg font-bold text-sidebar-foreground">Kahu Admin</h1>
-              <span className="text-xs text-muted-foreground">Dashboard</span>
-            </div>
-          )}
-          <div className="flex items-center gap-1 ml-auto">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-              className="h-8 w-8"
-            >
-              {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setCollapsed(!collapsed)}
-              className="h-8 w-8"
-            >
-              {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-            </Button>
+  const SidebarContent = () => (
+    <>
+      {/* Header */}
+      <div className={cn("flex h-16 items-center border-b px-4", isMobile ? "justify-between" : "justify-between")}>
+        {(!collapsed || isMobile) && (
+          <div className="flex flex-col">
+            <span className="font-semibold text-sidebar-foreground">Kahu Admin</span>
+            <span className="text-xs text-sidebar-foreground/60">{userEmail}</span>
           </div>
-        </div>
-
-        {/* Navigation */}
-        <ScrollArea className="flex-1 px-2 py-4">
-          <nav className="space-y-1">
-            {navigation.map((item) => (
-              <NavSection key={item.href} item={item} collapsed={collapsed} location={location} />
-            ))}
-          </nav>
-        </ScrollArea>
-
-        {/* User section */}
-        <div className="border-t p-4">
-          {!collapsed && (
-            <div className="mb-2 text-sm text-sidebar-foreground">
-              <div className="font-medium">{userEmail}</div>
-              <div className="text-xs text-muted-foreground">Administrator</div>
-            </div>
-          )}
+        )}
+        {!isMobile && (
           <Button
             variant="ghost"
-            size={collapsed ? "icon" : "sm"}
+            size="icon"
+            onClick={() => setCollapsed(!collapsed)}
+            className="h-8 w-8"
+          >
+            {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+          </Button>
+        )}
+      </div>
+
+      {/* Navigation */}
+      <ScrollArea className="flex-1 px-3 py-4">
+        <nav className="space-y-1">
+          {navigation.map((item) => (
+            <NavSection key={item.href} item={item} collapsed={isMobile ? false : collapsed} onNavigate={() => isMobile && setMobileMenuOpen(false)} />
+          ))}
+        </nav>
+      </ScrollArea>
+
+      {/* Footer Actions */}
+      <div className="border-t p-4">
+        <div className={cn("flex gap-2", collapsed && !isMobile ? "flex-col" : "flex-row items-center justify-between")}>
+          <Button
+            variant="ghost"
+            size={collapsed && !isMobile ? "icon" : "sm"}
+            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+            className={cn(collapsed && !isMobile && "w-full")}
+          >
+            {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            {(!collapsed || isMobile) && <span className="ml-2">Theme</span>}
+          </Button>
+          <Button
+            variant="ghost"
+            size={collapsed && !isMobile ? "icon" : "sm"}
             onClick={handleSignOut}
-            className="w-full justify-start"
+            className={cn(collapsed && !isMobile && "w-full")}
           >
             <LogOut className="h-4 w-4" />
-            {!collapsed && <span className="ml-2">Sign Out</span>}
+            {(!collapsed || isMobile) && <span className="ml-2">Sign Out</span>}
           </Button>
         </div>
-      </aside>
+      </div>
+    </>
+  );
+
+  return (
+    <div className="flex h-screen w-full overflow-hidden bg-background">
+      {/* Mobile Header */}
+      {isMobile && (
+        <header className="fixed top-0 left-0 right-0 z-40 flex h-16 items-center justify-between border-b bg-background px-4">
+          <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <Menu className="h-5 w-5" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="w-64 p-0">
+              <div className="flex h-full flex-col">
+                <SidebarContent />
+              </div>
+            </SheetContent>
+          </Sheet>
+          <span className="font-semibold">Kahu Admin</span>
+          <div className="w-10" /> {/* Spacer for centering */}
+        </header>
+      )}
+
+      {/* Desktop Sidebar */}
+      {!isMobile && (
+        <aside
+          className={cn(
+            "flex flex-col border-r bg-sidebar transition-all duration-300",
+            collapsed ? "w-16" : "w-64"
+          )}
+        >
+          <SidebarContent />
+        </aside>
+      )}
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto">
+      <main className={cn("flex-1 overflow-auto", isMobile && "pt-16")}>
         <Outlet />
       </main>
     </div>
   );
 }
 
-function NavSection({ item, collapsed, location }: { item: NavItem; collapsed: boolean; location: any }) {
+function NavSection({ item, collapsed, onNavigate }: { item: NavItem; collapsed: boolean; onNavigate?: () => void }) {
+  const location = useLocation();
   const [expanded, setExpanded] = useState(true);
   const isActive = location.pathname === item.href;
   const hasActiveChild = item.children?.some((child) => location.pathname === child.href);
@@ -212,26 +243,28 @@ function NavSection({ item, collapsed, location }: { item: NavItem; collapsed: b
             </>
           )}
         </button>
-        {!collapsed && expanded && (
-          <div className="ml-4 mt-1 space-y-1">
-            {item.children.map((child) => (
-              <NavLink key={child.href} item={child} location={location} />
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  return <NavLink item={item} location={location} collapsed={collapsed} />;
+      {item.children && !collapsed && (
+        <div className="ml-4 mt-1 space-y-1 border-l pl-4">
+          {item.children.map((child) => (
+            <NavLink key={child.href} item={child} collapsed={false} onNavigate={onNavigate} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
-function NavLink({ item, location, collapsed = false }: { item: NavItem; location: any; collapsed?: boolean }) {
+return <NavLink item={item} collapsed={collapsed} onNavigate={onNavigate} />;
+}
+
+function NavLink({ item, collapsed = false, onNavigate }: { item: NavItem; collapsed?: boolean; onNavigate?: () => void }) {
+  const location = useLocation();
   const isActive = location.pathname === item.href;
 
   return (
     <Link
       to={item.href}
+      onClick={onNavigate}
       className={cn(
         "flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors",
         "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",

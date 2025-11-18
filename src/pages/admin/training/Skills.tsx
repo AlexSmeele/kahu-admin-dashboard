@@ -11,6 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Dialog,
   DialogContent,
@@ -181,11 +182,11 @@ export default function AdminSkills() {
   });
 
   return (
-    <div className="p-8">
-      <div className="mb-6 flex items-center justify-between">
+    <div className="p-4 md:p-8">
+      <div className="mb-4 md:mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Training Skills</h1>
-          <p className="text-muted-foreground">Manage training skills and exercises</p>
+          <h1 className="text-2xl md:text-3xl font-bold">Training Skills</h1>
+          <p className="text-sm md:text-base text-muted-foreground">Manage training skills and exercises</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setReorderDialogOpen(true)}>
@@ -281,13 +282,13 @@ export default function AdminSkills() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Skills Library</CardTitle>
-          <CardDescription>
+          <CardTitle className="text-base md:text-lg">Skills Library</CardTitle>
+          <CardDescription className="text-xs md:text-sm">
             Click on a skill to view and edit details
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="mb-4 flex gap-4">
+          <div className="mb-4 flex flex-col sm:flex-row gap-2 md:gap-4">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -314,7 +315,8 @@ export default function AdminSkills() {
           {loading ? (
             <p className="text-muted-foreground">Loading...</p>
           ) : (
-            <Table>
+            <ScrollArea className="w-full overflow-x-auto">
+              <Table className="text-sm md:text-base">
               <TableHeader>
                 <TableRow>
                   <TableHead 
@@ -390,6 +392,7 @@ export default function AdminSkills() {
                 )}
               </TableBody>
             </Table>
+            </ScrollArea>
           )}
         </CardContent>
       </Card>

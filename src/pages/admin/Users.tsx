@@ -21,6 +21,7 @@ import {
 import { Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface Profile {
   id: string;
@@ -77,20 +78,20 @@ export default function AdminUsers() {
   const totalPages = Math.ceil(totalCount / pageSize);
 
   return (
-    <div className="p-8">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold">Users & Usage</h1>
-        <p className="text-muted-foreground">Manage user accounts and view usage statistics</p>
+    <div className="p-4 md:p-8">
+      <div className="mb-4 md:mb-6">
+        <h1 className="text-2xl md:text-3xl font-bold">Users & Usage</h1>
+        <p className="text-sm md:text-base text-muted-foreground">Manage user accounts and view usage statistics</p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>User Directory</CardTitle>
-          <CardDescription>Search and filter user accounts</CardDescription>
+          <CardTitle className="text-base md:text-lg">User Directory</CardTitle>
+          <CardDescription className="text-xs md:text-sm">Search and filter user accounts</CardDescription>
         </CardHeader>
         <CardContent>
           {/* Filters */}
-          <div className="mb-4 flex gap-4">
+          <div className="mb-4 flex flex-col sm:flex-row gap-2 md:gap-4">
             <div className="flex-1">
               <div className="relative">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -109,7 +110,7 @@ export default function AdminUsers() {
               setRoleFilter(value);
               setCurrentPage(1);
             }}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-full sm:w-[180px]">
                 <SelectValue placeholder="Filter by role" />
               </SelectTrigger>
               <SelectContent>
@@ -129,50 +130,53 @@ export default function AdminUsers() {
             </div>
           ) : (
             <>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Location</TableHead>
-                    <TableHead>Joined</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {profiles.map((profile) => (
-                    <TableRow key={profile.id}>
-                      <TableCell className="font-medium">
-                        {profile.display_name || "Unnamed User"}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={profile.role === "admin" ? "default" : "secondary"}>
-                          {profile.role || "owner"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {profile.city && profile.country
-                          ? `${profile.city}, ${profile.country}`
-                          : profile.country || "-"}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {new Date(profile.created_at).toLocaleDateString()}
-                      </TableCell>
-                      <TableCell>
-                        <Button variant="ghost" size="sm">
-                          View Details
-                        </Button>
-                      </TableCell>
+              <ScrollArea className="w-full overflow-x-auto">
+                <Table className="text-sm md:text-base">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="min-w-[150px]">Name</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead className="hidden md:table-cell">Location</TableHead>
+                      <TableHead className="hidden sm:table-cell">Joined</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {profiles.map((profile) => (
+                      <TableRow key={profile.id}>
+                        <TableCell className="font-medium">
+                          {profile.display_name || "Unnamed User"}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={profile.role === "admin" ? "default" : "secondary"} className="text-xs">
+                            {profile.role || "owner"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell text-muted-foreground">
+                          {profile.city && profile.country
+                            ? `${profile.city}, ${profile.country}`
+                            : profile.country || "-"}
+                        </TableCell>
+                        <TableCell className="hidden sm:table-cell text-muted-foreground">
+                          {new Date(profile.created_at).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="ghost" size="sm" className="h-8">
+                            <span className="hidden sm:inline">View</span>
+                            <span className="sm:hidden">•••</span>
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </ScrollArea>
 
               {/* Pagination */}
-              <div className="mt-4 flex items-center justify-between">
-                <div className="text-sm text-muted-foreground">
+              <div className="mt-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-t pt-4">
+                <div className="text-xs sm:text-sm text-muted-foreground">
                   Showing {(currentPage - 1) * pageSize + 1} to{" "}
-                  {Math.min(currentPage * pageSize, totalCount)} of {totalCount} users
+                  {Math.min(currentPage * pageSize, totalCount)} of {totalCount}
                 </div>
                 <div className="flex gap-2">
                   <Button
@@ -180,17 +184,19 @@ export default function AdminUsers() {
                     size="sm"
                     onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                     disabled={currentPage === 1}
+                    className="h-9"
                   >
                     <ChevronLeft className="h-4 w-4" />
-                    Previous
+                    <span className="hidden sm:inline ml-1">Previous</span>
                   </Button>
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                     disabled={currentPage === totalPages}
+                    className="h-9"
                   >
-                    Next
+                    <span className="hidden sm:inline mr-1">Next</span>
                     <ChevronRight className="h-4 w-4" />
                   </Button>
                 </div>
