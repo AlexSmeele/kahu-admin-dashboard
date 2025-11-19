@@ -340,7 +340,7 @@ export function CSVImportBuilder({ sectionId }: CSVImportBuilderProps) {
     const errorList: string[] = [];
 
     try {
-      // If creating a new table, execute DDL first
+      // Execute DDL only if creating new table (skip for import mode)
       if (importMode === 'create') {
         const sql = generateTableSQL();
         
@@ -412,7 +412,11 @@ export function CSVImportBuilder({ sectionId }: CSVImportBuilderProps) {
 
       // Import data in batches
       const batchSize = 100;
-      const tableName = importMode === 'create' ? newTableName : 'existing_table'; // TODO: Add table selector
+      const tableName = importMode === 'create' ? newTableName : selectedExistingTableName;
+      
+      if (!tableName) {
+        throw new Error('Table name is required');
+      }
 
       for (let i = 0; i < csvData.length; i += batchSize) {
         const batch = csvData.slice(i, i + batchSize);
@@ -688,6 +692,7 @@ export function CSVImportBuilder({ sectionId }: CSVImportBuilderProps) {
           onMappingChange={setMappings}
           mode={importMode}
           columnGroups={columnGroups}
+          existingSchema={existingTableSchema?.columns}
         />
 
         <CSVPreview

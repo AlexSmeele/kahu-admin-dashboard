@@ -26,16 +26,24 @@ export interface ColumnMapping {
   groupId?: string;
 }
 
+export interface SchemaField {
+  column_name: string;
+  data_type: string;
+  is_nullable: string;
+  column_default: string | null;
+}
+
 interface CSVColumnMapperProps {
   columns: CSVColumn[];
   existingFields?: string[];
+  existingSchema?: SchemaField[];
   mappings: ColumnMapping[];
   onMappingChange: (mappings: ColumnMapping[]) => void;
   mode: 'create' | 'import';
   columnGroups?: ColumnGroup[];
 }
 
-export const CSVColumnMapper = ({ columns, existingFields, mappings, onMappingChange, mode, columnGroups = [] }: CSVColumnMapperProps) => {
+export const CSVColumnMapper = ({ columns, existingFields, existingSchema, mappings, onMappingChange, mode, columnGroups = [] }: CSVColumnMapperProps) => {
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const groupedColumnsSet = new Set(columnGroups.flatMap(g => g.sourceColumns));
 
@@ -175,10 +183,48 @@ export const CSVColumnMapper = ({ columns, existingFields, mappings, onMappingCh
                               {validationErrors[column.name] && <div className="flex items-center gap-1 text-xs text-destructive mt-1"><AlertCircle className="h-3 w-3" />{validationErrors[column.name]}</div>}
                             </div>
                           ) : (
-                            <Select value={mapping.targetField || ''} onValueChange={(value) => updateMapping(column.name, { targetField: value })}>
-                              <SelectTrigger><SelectValue placeholder="Select target field" /></SelectTrigger>
-                              <SelectContent>{existingFields?.map(field => <SelectItem key={field} value={field}>{field}</SelectItem>)}</SelectContent>
-                            </Select>
+                            <div>
+                              <Select value={mapping.targetField || ''} onValueChange={(value) => {
+                                const schemaField = existingSchema?.find(f => f.column_name === value);
+                                updateMapping(column.name, { 
+                                  targetField: value,
+                                  dataType: schemaField?.data_type || 'text'
+                                });
+                              }}>
+                                <SelectTrigger><SelectValue placeholder="Select target field" /></SelectTrigger>
+                                <SelectContent>
+                                  {existingSchema?.map(field => (
+                                    <SelectItem key={field.column_name} value={field.column_name}>
+                                      <div className="flex items-center gap-2">
+                                        <span>{field.column_name}</span>
+                                        <Badge variant="outline" className="text-xs">{field.data_type}</Badge>
+                                        {field.is_nullable === 'NO' && <Badge variant="secondary" className="text-xs">Required</Badge>}
+                                      </div>
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              {mapping.targetField && existingSchema && (
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  {(() => {
+                                    const schemaField = existingSchema.find(f => f.column_name === mapping.targetField);
+                                    if (!schemaField) return null;
+                                    const isTypeMatch = (
+                                      (column.detectedType === 'text' && schemaField.data_type.includes('text')) ||
+                                      (column.detectedType === 'number' && (schemaField.data_type.includes('int') || schemaField.data_type.includes('numeric'))) ||
+                                      (column.detectedType === 'boolean' && schemaField.data_type === 'boolean') ||
+                                      (column.detectedType === 'date' && schemaField.data_type.includes('date')) ||
+                                      (column.detectedType === 'json' && schemaField.data_type === 'jsonb')
+                                    );
+                                    return isTypeMatch ? (
+                                      <span className="text-green-600">✓ Type compatible</span>
+                                    ) : (
+                                      <span className="text-amber-600">⚠️ Type conversion: {column.detectedType} → {schemaField.data_type}</span>
+                                    );
+                                  })()}
+                                </div>
+                              )}
+                            </div>
                           )}
                         </div>
                       </TableCell>
