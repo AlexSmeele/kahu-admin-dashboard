@@ -312,7 +312,7 @@ export default function SectionDetail() {
                         size="sm" 
                         variant="outline" 
                         className="w-full"
-                        onClick={() => navigate(`/admin/content/sections/${sectionId}/tables/new?tableId=${table.id}`)}
+                        onClick={() => navigate(`/admin/content/sections/${sectionId}/tables/${table.id}/edit`)}
                       >
                         Edit Schema
                       </Button>
