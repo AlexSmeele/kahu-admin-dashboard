@@ -54,27 +54,7 @@ interface ContentTable {
 const baseNavigation: NavItem[] = [
   { title: "Overview", href: "/admin", icon: LayoutDashboard },
   { title: "Users & Usage", href: "/admin/users", icon: Users },
-  {
-    title: "Training Content",
-    href: "/admin/training",
-    icon: GraduationCap,
-    children: [
-      { title: "Skills", href: "/admin/training/skills", icon: FileText },
-      { title: "Foundation Modules", href: "/admin/training/modules", icon: FileText },
-      { title: "Troubleshooting", href: "/admin/training/troubleshooting", icon: FileText },
-    ],
-  },
   { title: "Media Library", href: "/admin/media", icon: Image },
-  {
-    title: "Dog Knowledge Base",
-    href: "/admin/dogs",
-    icon: Dog,
-    children: [
-      { title: "Breeds", href: "/admin/dogs/breeds", icon: Dog },
-      { title: "Vaccines", href: "/admin/dogs/vaccines", icon: FileText },
-      { title: "Treatments", href: "/admin/dogs/treatments", icon: FileText },
-    ],
-  },
   { title: "Content Manager", href: "/admin/content/sections", icon: Layers },
   { title: "Invite Codes", href: "/admin/invites", icon: Ticket },
   { title: "System & Logs", href: "/admin/system", icon: Settings },
@@ -135,11 +115,11 @@ export function AdminLayout() {
         };
       });
 
-      // Insert dynamic sections after "Dog Knowledge Base" (index 4)
+      // Insert dynamic sections after "Users & Usage" (index 1)
       const updatedNav = [
-        ...baseNavigation.slice(0, 5), // Overview, Users, Training, Media, Dog KB
-        ...dynamicNavItems,             // Dynamic CMS sections
-        ...baseNavigation.slice(5),     // Content Manager, Invites, System
+        ...baseNavigation.slice(0, 2), // Overview, Users & Usage
+        ...dynamicNavItems,              // Dynamic sections from database
+        ...baseNavigation.slice(2),      // Media Library, Content Manager, Invites, System
       ];
 
       setNavigation(updatedNav);
