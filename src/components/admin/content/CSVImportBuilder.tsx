@@ -30,7 +30,7 @@ interface TableSchema {
 }
 
 interface CSVImportBuilderProps {
-  sectionId: string;
+  sectionId?: string;
 }
 
 type ImportStep = 'upload' | 'mapping' | 'importing' | 'complete';
