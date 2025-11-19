@@ -57,7 +57,7 @@ export default function DynamicContentManager() {
         description: error.message,
         variant: "destructive",
       });
-      navigate(`/admin/content/sections/${sectionId}/tables`);
+      navigate(`/admin/content/sections/${sectionId}`);
     } finally {
       setLoading(false);
     }
@@ -181,7 +181,7 @@ export default function DynamicContentManager() {
     <>
       <div className="space-y-6">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate(`/admin/content/sections/${sectionId}/tables`)}>
+          <Button variant="ghost" size="icon" onClick={() => navigate(`/admin/content/sections/${sectionId}`)}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div className="flex-1">

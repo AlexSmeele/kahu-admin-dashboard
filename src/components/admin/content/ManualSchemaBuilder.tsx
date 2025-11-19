@@ -79,7 +79,7 @@ export function ManualSchemaBuilder({ sectionId, tableId }: ManualSchemaBuilderP
         description: error.message,
         variant: 'destructive',
       });
-      navigate(`/admin/content/sections/${sectionId}/tables`);
+      navigate(`/admin/content/sections/${sectionId}`);
     } finally {
       setLoading(false);
     }
@@ -289,7 +289,7 @@ export function ManualSchemaBuilder({ sectionId, tableId }: ManualSchemaBuilderP
         });
       }
 
-      navigate(`/admin/content/sections/${sectionId}/tables`);
+      navigate(`/admin/content/sections/${sectionId}`);
     } catch (error: any) {
       console.error('Error saving table:', error);
       toast({

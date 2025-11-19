@@ -170,7 +170,7 @@ export function ExistingTableConnector({ sectionId }: ExistingTableConnectorProp
         description: `${displayName} has been connected to the Content Manager.`,
       });
 
-      navigate(`/admin/content/sections/${sectionId}/tables`);
+      navigate(`/admin/content/sections/${sectionId}`);
     } catch (error: any) {
       console.error("Error connecting table:", error);
       toast({
@@ -263,7 +263,7 @@ export function ExistingTableConnector({ sectionId }: ExistingTableConnectorProp
             <Button
               type="button"
               variant="outline"
-              onClick={() => navigate(`/admin/content/sections/${sectionId}/tables`)}
+              onClick={() => navigate(`/admin/content/sections/${sectionId}`)}
               disabled={submitting}
             >
               Cancel
