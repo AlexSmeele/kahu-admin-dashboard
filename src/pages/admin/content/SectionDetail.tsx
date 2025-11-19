@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Table as TableIcon, Upload, Plus, Edit, Trash2 } from "lucide-react";
+import { IconPicker } from "@/components/admin/content/IconPicker";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -205,11 +206,9 @@ export default function SectionDetail() {
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="icon">Icon</Label>
-                    <Input
-                      id="icon"
-                      value={editedSection.icon || ""}
-                      onChange={(e) => setEditedSection({ ...editedSection, icon: e.target.value })}
-                      placeholder="Lucide icon name (e.g., GraduationCap)"
+                    <IconPicker
+                      value={editedSection.icon}
+                      onChange={(iconName) => setEditedSection({ ...editedSection, icon: iconName })}
                     />
                   </div>
                   <div className="flex items-center space-x-2">
