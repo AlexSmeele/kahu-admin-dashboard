@@ -7,13 +7,15 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { ManualSchemaBuilder } from "@/components/admin/content/ManualSchemaBuilder";
 import { CSVImportBuilder } from "@/components/admin/content/CSVImportBuilder";
+import { ExistingTableConnector } from "@/components/admin/content/ExistingTableConnector";
 
-type CreationMethod = 'manual' | 'csv';
+type CreationMethod = 'manual' | 'csv' | 'existing';
 
 export default function TableBuilder() {
-  const { sectionId } = useParams();
+  const { sectionId, tableId } = useParams();
   const navigate = useNavigate();
   const [method, setMethod] = useState<CreationMethod>('manual');
+  const isEditMode = tableId && tableId !== 'new';
 
   return (
     <div className="container mx-auto py-8 px-4 max-w-7xl">
@@ -30,52 +32,69 @@ export default function TableBuilder() {
 
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold">Create New Table</h1>
+            <h1 className="text-3xl font-bold">
+              {isEditMode ? 'Edit Table' : 'Create New Table'}
+            </h1>
             <p className="text-muted-foreground mt-1">
-              Choose how you want to create your table
+              {isEditMode ? 'Update table configuration' : 'Choose how you want to create your table'}
             </p>
           </div>
         </div>
       </div>
 
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>Table Creation Method</CardTitle>
-          <CardDescription>
-            Select whether you want to manually define the schema or import from a CSV file
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <RadioGroup value={method} onValueChange={(value) => setMethod(value as CreationMethod)}>
-            <div className="flex items-start space-x-3 space-y-0 rounded-md border p-4 cursor-pointer hover:bg-accent/50 transition-colors" onClick={() => setMethod('manual')}>
-              <RadioGroupItem value="manual" id="manual" />
-              <div className="space-y-1 leading-none flex-1">
-                <Label htmlFor="manual" className="cursor-pointer">
-                  <div className="font-semibold text-base">Manual Schema Builder</div>
-                  <div className="text-sm text-muted-foreground mt-1">
-                    Define table fields one by one with full control over data types and constraints
-                  </div>
-                </Label>
+      {!isEditMode && (
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>Table Creation Method</CardTitle>
+            <CardDescription>
+              Select how you want to create your table
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <RadioGroup value={method} onValueChange={(value) => setMethod(value as CreationMethod)}>
+              <div className="flex items-start space-x-3 space-y-0 rounded-md border p-4 cursor-pointer hover:bg-accent/50 transition-colors" onClick={() => setMethod('manual')}>
+                <RadioGroupItem value="manual" id="manual" />
+                <div className="space-y-1 leading-none flex-1">
+                  <Label htmlFor="manual" className="cursor-pointer">
+                    <div className="font-semibold text-base">Manual Schema Builder</div>
+                    <div className="text-sm text-muted-foreground mt-1">
+                      Define table fields one by one with full control over data types and constraints
+                    </div>
+                  </Label>
+                </div>
               </div>
-            </div>
 
-            <div className="flex items-start space-x-3 space-y-0 rounded-md border p-4 cursor-pointer hover:bg-accent/50 transition-colors" onClick={() => setMethod('csv')}>
-              <RadioGroupItem value="csv" id="csv" />
-              <div className="space-y-1 leading-none flex-1">
-                <Label htmlFor="csv" className="cursor-pointer">
-                  <div className="font-semibold text-base">Import from CSV</div>
-                  <div className="text-sm text-muted-foreground mt-1">
-                    Upload a CSV file to automatically detect schema and import data
-                  </div>
-                </Label>
+              <div className="flex items-start space-x-3 space-y-0 rounded-md border p-4 cursor-pointer hover:bg-accent/50 transition-colors" onClick={() => setMethod('csv')}>
+                <RadioGroupItem value="csv" id="csv" />
+                <div className="space-y-1 leading-none flex-1">
+                  <Label htmlFor="csv" className="cursor-pointer">
+                    <div className="font-semibold text-base">Import from CSV</div>
+                    <div className="text-sm text-muted-foreground mt-1">
+                      Upload a CSV file to automatically detect schema and import data
+                    </div>
+                  </Label>
+                </div>
               </div>
-            </div>
-          </RadioGroup>
-        </CardContent>
-      </Card>
 
-      {method === 'manual' && <ManualSchemaBuilder sectionId={sectionId!} />}
+              <div className="flex items-start space-x-3 space-y-0 rounded-md border p-4 cursor-pointer hover:bg-accent/50 transition-colors" onClick={() => setMethod('existing')}>
+                <RadioGroupItem value="existing" id="existing" />
+                <div className="space-y-1 leading-none flex-1">
+                  <Label htmlFor="existing" className="cursor-pointer">
+                    <div className="font-semibold text-base">Connect Existing Table</div>
+                    <div className="text-sm text-muted-foreground mt-1">
+                      Link an existing database table to the Content Manager
+                    </div>
+                  </Label>
+                </div>
+              </div>
+            </RadioGroup>
+          </CardContent>
+        </Card>
+      )}
+
+      {method === 'manual' && <ManualSchemaBuilder sectionId={sectionId!} tableId={tableId} />}
       {method === 'csv' && <CSVImportBuilder sectionId={sectionId!} />}
+      {method === 'existing' && <ExistingTableConnector sectionId={sectionId!} />}
     </div>
   );
 }

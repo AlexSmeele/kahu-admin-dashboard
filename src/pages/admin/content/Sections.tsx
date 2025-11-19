@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Pencil, Trash2, GripVertical, FolderOpen } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { SectionReorderDialog } from "@/components/admin/content/SectionReorderDialog";
 
 interface Section {
   id: string;
@@ -25,6 +26,7 @@ export default function Sections() {
   const [loading, setLoading] = useState(true);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [sectionToDelete, setSectionToDelete] = useState<Section | null>(null);
+  const [reorderDialogOpen, setReorderDialogOpen] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -106,10 +108,16 @@ export default function Sections() {
                 Organize and manage your content library
               </p>
             </div>
-            <Button onClick={() => navigate("/admin/content/sections/new")} size="lg">
-              <Plus className="mr-2 h-4 w-4" />
-              Add Section
-            </Button>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Button onClick={() => setReorderDialogOpen(true)} variant="outline" size="lg">
+                <GripVertical className="mr-2 h-4 w-4" />
+                Reorder Sections
+              </Button>
+              <Button onClick={() => navigate("/admin/content/sections/new")} size="lg">
+                <Plus className="mr-2 h-4 w-4" />
+                Add Section
+              </Button>
+            </div>
           </div>
 
           {/* Sections Grid */}
@@ -204,6 +212,12 @@ export default function Sections() {
           )}
         </div>
       </div>
+
+      <SectionReorderDialog
+        open={reorderDialogOpen}
+        onOpenChange={setReorderDialogOpen}
+        onReorderComplete={fetchSections}
+      />
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>

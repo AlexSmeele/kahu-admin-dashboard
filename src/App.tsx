@@ -68,6 +68,7 @@ const App = () => (
               <Route path="content/sections/:sectionId" element={<AdminSectionDetail />} />
               <Route path="content/sections/:sectionId/tables" element={<AdminContentTables />} />
               <Route path="content/sections/:sectionId/tables/new" element={<AdminTableBuilder />} />
+              <Route path="content/sections/:sectionId/tables/:tableId/edit" element={<AdminTableBuilder />} />
               <Route path="content/sections/:sectionId/tables/:tableId/records" element={<AdminDynamicContentManager />} />
               <Route path="content/sections/:sectionId/tables/:tableId/records/new" element={<AdminDynamicRecordEditor />} />
               <Route path="content/sections/:sectionId/tables/:tableId/records/:recordId" element={<AdminDynamicRecordEditor />} />
