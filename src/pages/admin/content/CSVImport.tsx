@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { CSVUploader } from "@/components/admin/content/CSVUploader";
 import { CSVColumnMapper, CSVColumn, ColumnMapping } from "@/components/admin/content/CSVColumnMapper";
 import { ColumnGroupManager, ColumnGroup } from "@/components/admin/content/ColumnGroupManager";
+import { CSVPreview } from "@/components/admin/content/CSVPreview";
 import { supabase } from "@/integrations/supabase/client";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -165,6 +166,14 @@ export default function CSVImport() {
       const detectedGroups = detectColumnGroups(analyzedColumns);
       setColumnGroups(detectedGroups);
       
+      // Show toast if groups were detected
+      if (detectedGroups.length > 0) {
+        toast({
+          title: "Column groups detected",
+          description: `Found ${detectedGroups.length} potential column ${detectedGroups.length === 1 ? 'group' : 'groups'}. Review and adjust in the Column Groups section.`,
+        });
+      }
+      
       // Initialize mappings (mark grouped columns)
       const groupedColumnNames = new Set(
         detectedGroups.flatMap(g => g.sourceColumns)
@@ -276,11 +285,16 @@ CREATE TRIGGER update_${newTableName}_updated_at
         // First, process column groups
         columnGroups.forEach(group => {
           const arrayValues = group.sourceColumns
-            .map(colName => row[colName])
-            .filter(val => val && val.trim())
-            .map(val => val.trim());
+            .map(colName => {
+              const val = row[colName];
+              // Handle empty, null, or undefined values
+              if (val === null || val === undefined || val === '') return null;
+              return typeof val === 'string' ? val.trim() : String(val);
+            })
+            .filter((val): val is string => val !== null && val !== '');
           
-          record[group.targetField] = arrayValues.length > 0 ? arrayValues : [];
+          // Always set as array, even if empty
+          record[group.targetField] = arrayValues;
         });
         
         // Then, process regular mappings (skip grouped columns)
@@ -294,13 +308,25 @@ CREATE TRIGGER update_${newTableName}_updated_at
             value = value ? Number(value) : null;
           } else if (mapping.dataType === 'boolean') {
             value = ['true', '1', 'yes'].includes(value?.toLowerCase());
-          } else if (mapping.dataType === 'json') {
-            try {
-              value = JSON.parse(value);
-            } catch {
-              value = null;
+            } else if (mapping.dataType === 'json') {
+              try {
+                // If it's already parsed or it's an array/object, keep as is
+                if (typeof value === 'object') {
+                  // Already an object or array
+                } else if (typeof value === 'string' && value.trim()) {
+                  value = JSON.parse(value);
+                } else {
+                  value = null;
+                }
+              } catch {
+                // If JSON parsing fails, wrap in array if it looks like comma-separated values
+                if (typeof value === 'string' && value.includes(',')) {
+                  value = value.split(',').map(v => v.trim()).filter(Boolean);
+                } else {
+                  value = null;
+                }
+              }
             }
-          }
           
           record[mapping.targetField] = value;
         });
@@ -438,6 +464,14 @@ CREATE TRIGGER update_${newTableName}_updated_at
             groupedColumns={new Set(columnGroups.flatMap(g => g.sourceColumns))}
           />
 
+          {/* Preview Section */}
+          <CSVPreview
+            data={csvData}
+            mappings={mappings}
+            columnGroups={columnGroups}
+            maxRows={5}
+          />
+
           {importMode === 'create' && (
             <Card>
               <CardHeader>
@@ -460,13 +494,17 @@ CREATE TRIGGER update_${newTableName}_updated_at
             </Card>
           )}
 
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setStep('upload')}>
+          <div className="flex flex-col sm:flex-row justify-end gap-2">
+            <Button variant="outline" onClick={() => setStep('upload')} className="sm:w-auto">
               Back
             </Button>
-            <Button onClick={handleImport}>
+            <Button 
+              onClick={handleImport}
+              disabled={importMode === 'create' && !newTableName}
+              className="sm:w-auto"
+            >
               <Upload className="mr-2 h-4 w-4" />
-              Start Import
+              Start Import ({csvData.length} rows)
             </Button>
           </div>
         </div>
