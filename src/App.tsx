@@ -18,6 +18,7 @@ const AdminUsers = lazy(() => import("./pages/admin/Users"));
 const AdminSkills = lazy(() => import("./pages/admin/training/Skills"));
 const SkillDetail = lazy(() => import("./pages/admin/training/SkillDetail"));
 const AdminModules = lazy(() => import("./pages/admin/training/Modules"));
+const ModuleDetail = lazy(() => import("./pages/admin/training/ModuleDetail"));
 const AdminTroubleshooting = lazy(() => import("./pages/admin/training/Troubleshooting"));
 const AdminMedia = lazy(() => import("./pages/admin/Media"));
 const AdminBreeds = lazy(() => import("./pages/admin/dogs/Breeds"));
@@ -56,6 +57,7 @@ const App = () => (
               <Route path="training/skills" element={<AdminSkills />} />
               <Route path="training/skills/:id" element={<SkillDetail />} />
               <Route path="training/modules" element={<AdminModules />} />
+              <Route path="training/modules/:id" element={<ModuleDetail />} />
               <Route path="training/troubleshooting" element={<AdminTroubleshooting />} />
               <Route path="media" element={<AdminMedia />} />
               <Route path="dogs/breeds" element={<AdminBreeds />} />
