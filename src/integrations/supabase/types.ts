@@ -2248,6 +2248,59 @@ export type Database = {
           },
         ]
       }
+      schema_migration_history: {
+        Row: {
+          affected_rows: number | null
+          changes: Json
+          created_at: string | null
+          error_message: string | null
+          executed_at: string | null
+          executed_by: string | null
+          id: string
+          migration_type: string
+          sql_executed: string | null
+          success: boolean
+          table_id: string
+          table_name: string
+        }
+        Insert: {
+          affected_rows?: number | null
+          changes: Json
+          created_at?: string | null
+          error_message?: string | null
+          executed_at?: string | null
+          executed_by?: string | null
+          id?: string
+          migration_type: string
+          sql_executed?: string | null
+          success?: boolean
+          table_id: string
+          table_name: string
+        }
+        Update: {
+          affected_rows?: number | null
+          changes?: Json
+          created_at?: string | null
+          error_message?: string | null
+          executed_at?: string | null
+          executed_by?: string | null
+          id?: string
+          migration_type?: string
+          sql_executed?: string | null
+          success?: boolean
+          table_id?: string
+          table_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "schema_migration_history_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: false
+            referencedRelation: "admin_content_tables"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       skill_progression_requirements: {
         Row: {
           contexts_required: Json | null
