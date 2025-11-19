@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { CheckCircle, AlertCircle, Code } from "lucide-react";
+import { CheckCircle, AlertCircle, Code, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Papa from "papaparse";
 import { CSVUploader } from "./CSVUploader";
@@ -17,6 +17,7 @@ import { ColumnGroupManager, ColumnGroup } from "./ColumnGroupManager";
 import { CSVPreview } from "./CSVPreview";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { validateSQLIdentifier, sanitizeSQLIdentifier } from "@/lib/validators";
 
 interface CSVImportBuilderProps {
   sectionId: string;
@@ -41,6 +42,7 @@ export function CSVImportBuilder({ sectionId }: CSVImportBuilderProps) {
   const [importStats, setImportStats] = useState({ success: 0, failed: 0, total: 0 });
   const [errors, setErrors] = useState<string[]>([]);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [tableNameError, setTableNameError] = useState<string>('');
 
   const detectDataType = (values: string[]): CSVColumn['detectedType'] => {
     const nonEmpty = values.filter(v => v && v.trim());
@@ -264,6 +266,29 @@ export function CSVImportBuilder({ sectionId }: CSVImportBuilderProps) {
       });
       return;
     }
+    
+    // Validate table name
+    const validation = validateSQLIdentifier(newTableName);
+    if (!validation.valid) {
+      setTableNameError(validation.error || 'Invalid table name');
+      toast({
+        title: "Validation Error",
+        description: validation.error,
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Validate all field names
+    const invalidFields = mappings.filter(m => !validateSQLIdentifier(m.targetField).valid);
+    if (invalidFields.length > 0) {
+      toast({
+        title: "Validation Error",
+        description: `Invalid field names: ${invalidFields.map(f => f.targetField).join(', ')}`,
+        variant: "destructive",
+      });
+      return;
+    }
 
     setStep('importing');
     setProgress(0);
@@ -452,13 +477,51 @@ export function CSVImportBuilder({ sectionId }: CSVImportBuilderProps) {
               <div className="mt-4 space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="tableName">Table Name *</Label>
-                  <Input
-                    id="tableName"
-                    value={newTableName}
-                    onChange={(e) => setNewTableName(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '_'))}
-                    placeholder="e.g., training_skills"
-                    required
-                  />
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <Input
+                        id="tableName"
+                        value={newTableName}
+                        onChange={(e) => {
+                          setNewTableName(e.target.value);
+                          const validation = validateSQLIdentifier(e.target.value);
+                          setTableNameError(validation.valid ? '' : validation.error || '');
+                        }}
+                        placeholder="e.g., training_skills"
+                        required
+                        className={tableNameError ? "border-destructive" : ""}
+                      />
+                      {tableNameError && (
+                        <div className="flex items-center gap-1 text-xs text-destructive mt-1">
+                          <AlertCircle className="h-3 w-3" />
+                          {tableNameError}
+                        </div>
+                      )}
+                      {!tableNameError && newTableName && (
+                        <div className="text-xs text-muted-foreground mt-1">
+                          ✓ Valid table name
+                        </div>
+                      )}
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const sanitized = sanitizeSQLIdentifier(newTableName);
+                        setNewTableName(sanitized);
+                        const validation = validateSQLIdentifier(sanitized);
+                        setTableNameError(validation.valid ? '' : validation.error || '');
+                      }}
+                      disabled={!newTableName}
+                    >
+                      <Sparkles className="h-4 w-4 mr-1" />
+                      Fix
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Use lowercase letters, numbers, and underscores only. Cannot start with a number.
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="tableDisplayName">Display Name *</Label>
@@ -489,7 +552,6 @@ export function CSVImportBuilder({ sectionId }: CSVImportBuilderProps) {
           mappings={mappings}
           onMappingChange={setMappings}
           mode={importMode}
-          groupedColumns={new Set(columnGroups.flatMap(g => g.sourceColumns))}
           columnGroups={columnGroups}
         />
 
