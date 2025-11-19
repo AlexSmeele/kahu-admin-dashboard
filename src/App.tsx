@@ -28,7 +28,6 @@ const AdminInvites = lazy(() => import("./pages/admin/Invites"));
 const AdminSystem = lazy(() => import("./pages/admin/System"));
 const AdminSections = lazy(() => import("./pages/admin/content/Sections"));
 const AdminSectionDetail = lazy(() => import("./pages/admin/content/SectionDetail"));
-const AdminContentTables = lazy(() => import("./pages/admin/content/ContentTables"));
 const AdminTableBuilder = lazy(() => import("./pages/admin/content/TableBuilder"));
 const AdminDynamicContentManager = lazy(() => import("./pages/admin/content/DynamicContentManager"));
 const AdminDynamicRecordEditor = lazy(() => import("./pages/admin/content/DynamicRecordEditor"));
@@ -66,7 +65,6 @@ const App = () => (
               <Route path="system" element={<AdminSystem />} />
               <Route path="content/sections" element={<AdminSections />} />
               <Route path="content/sections/:sectionId" element={<AdminSectionDetail />} />
-              <Route path="content/sections/:sectionId/tables" element={<AdminContentTables />} />
               <Route path="content/sections/:sectionId/tables/new" element={<AdminTableBuilder />} />
               <Route path="content/sections/:sectionId/tables/:tableId/edit" element={<AdminTableBuilder />} />
               <Route path="content/sections/:sectionId/tables/:tableId/records" element={<AdminDynamicContentManager />} />
