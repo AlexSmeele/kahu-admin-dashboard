@@ -75,7 +75,8 @@ serve(async (req) => {
     const connection = await pool.connect()
 
     try {
-      const result = await connection.queryObject<{
+      // Get column information
+      const columnsResult = await connection.queryObject<{
         column_name: string;
         data_type: string;
         is_nullable: string;
@@ -103,12 +104,63 @@ serve(async (req) => {
         args: [tableName]
       })
 
+      // Get foreign key constraints
+      const fkResult = await connection.queryObject<{
+        column_name: string;
+        foreign_table: string;
+        foreign_column: string;
+        constraint_name: string;
+      }>({
+        text: `
+          SELECT 
+            kcu.column_name,
+            ccu.table_name AS foreign_table,
+            ccu.column_name AS foreign_column,
+            tc.constraint_name
+          FROM information_schema.table_constraints tc
+          JOIN information_schema.key_column_usage kcu 
+            ON tc.constraint_name = kcu.constraint_name
+            AND tc.table_schema = kcu.table_schema
+          JOIN information_schema.constraint_column_usage ccu 
+            ON ccu.constraint_name = tc.constraint_name
+            AND ccu.table_schema = tc.table_schema
+          WHERE tc.constraint_type = 'FOREIGN KEY'
+            AND tc.table_schema = 'public'
+            AND tc.table_name = $1
+        `,
+        args: [tableName]
+      })
+
+      // Get unique and check constraints
+      const constraintsResult = await connection.queryObject<{
+        column_name: string;
+        constraint_type: string;
+        constraint_name: string;
+      }>({
+        text: `
+          SELECT 
+            kcu.column_name,
+            tc.constraint_type,
+            tc.constraint_name
+          FROM information_schema.table_constraints tc
+          JOIN information_schema.key_column_usage kcu 
+            ON tc.constraint_name = kcu.constraint_name
+            AND tc.table_schema = kcu.table_schema
+          WHERE tc.table_schema = 'public'
+            AND tc.table_name = $1
+            AND tc.constraint_type IN ('UNIQUE', 'PRIMARY KEY', 'CHECK')
+        `,
+        args: [tableName]
+      })
+
       return new Response(
         JSON.stringify({ 
           success: true,
           tableName,
-          columns: result.rows,
-          count: result.rows.length
+          columns: columnsResult.rows,
+          foreign_keys: fkResult.rows,
+          constraints: constraintsResult.rows,
+          count: columnsResult.rows.length
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
