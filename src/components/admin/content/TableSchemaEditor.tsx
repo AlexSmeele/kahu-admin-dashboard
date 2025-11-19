@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { ArrowLeft, Plus, Eye, Save, AlertCircle, RefreshCw, History, Database, Info } from "lucide-react";
+import { ArrowLeft, Plus, Eye, Save, AlertCircle, RefreshCw, History, Database, Info, Trash } from "lucide-react";
 import { SchemaField } from "./SchemaFieldEditor";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -214,47 +214,81 @@ export function TableSchemaEditor() {
     
     setSyncing(true);
     try {
-      const { data: introspectData, error: introspectError } = await supabase.functions.invoke('introspect-schema', {
+      const { data, error } = await supabase.functions.invoke('introspect-schema', {
         body: { tableName: tableData.table_name }
       });
 
-      if (introspectError) throw introspectError;
-      if (!introspectData?.columns) throw new Error("No columns returned from introspection");
+      if (error) throw error;
+      if (!data || !data.columns) throw new Error("No schema data returned");
 
-      const schemaFields: SchemaField[] = introspectData.columns.map((col: any, index: number) => ({
-        id: crypto.randomUUID(),
+      const mappedFields: SchemaField[] = data.columns.map((col: any, index: number) => ({
+        id: `field-${Date.now()}-${index}`,
         name: col.column_name,
-        label: col.column_name.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
+        label: col.column_name.split('_').map((w: string) => 
+          w.charAt(0).toUpperCase() + w.slice(1)
+        ).join(' '),
         type: mapPostgreSQLType(col.data_type),
         nullable: col.is_nullable === 'YES',
-        required: col.is_nullable === 'NO',
         unique: false,
-        defaultValue: col.column_default || '',
-        description: '',
-        order: index,
+        uiWidget: 'input',
+        defaultValue: col.column_default,
+        foreignKey: null,
+        validation: {},
+        description: ''
       }));
 
-      setFields(schemaFields);
-      setOriginalFields(JSON.parse(JSON.stringify(schemaFields)));
+      setFields(mappedFields);
+      setOriginalFields(mappedFields);
 
-      // Save to database
       const { error: updateError } = await supabase
         .from('admin_content_tables')
-        .update({ schema_definition: schemaFields as any })
+        .update({ schema_definition: mappedFields as any })
         .eq('id', tableId);
 
       if (updateError) throw updateError;
 
-      toast.success(`Synced ${schemaFields.length} columns from database table "${tableData.table_name}"`, {
-        description: "Schema definition has been populated and saved."
+      toast.success("Schema synced from database", {
+        description: `Loaded ${mappedFields.length} columns from ${tableData.table_name}`
       });
     } catch (error: any) {
-      console.error("Error syncing schema:", error);
+      console.error("Error syncing from database:", error);
       toast.error("Failed to sync schema from database", {
         description: error.message
       });
     } finally {
       setSyncing(false);
+    }
+  };
+
+  const handleDeleteConnection = async () => {
+    if (!tableData) return;
+    
+    const confirmed = window.confirm(
+      `Delete connection to "${tableData.display_name}"?\n\n` +
+      `This will remove this table from the Content Manager but will NOT delete the actual database table "${tableData.table_name}". ` +
+      `You can reconnect it later using "Connect Existing Table".`
+    );
+    
+    if (!confirmed) return;
+    
+    try {
+      const { error } = await supabase
+        .from('admin_content_tables')
+        .delete()
+        .eq('id', tableId);
+      
+      if (error) throw error;
+      
+      toast.success(`Connection deleted`, {
+        description: `"${tableData.display_name}" has been removed from the Content Manager. The database table still exists.`
+      });
+      
+      navigate(`/admin/content/sections/${sectionId}`);
+    } catch (error: any) {
+      console.error("Error deleting connection:", error);
+      toast.error("Failed to delete connection", {
+        description: error.message
+      });
     }
   };
 
@@ -328,6 +362,24 @@ export function TableSchemaEditor() {
       toast.success("No schema drift detected. Schema and database are in sync!");
     } else {
       toast.warning(`Detected ${drifts.length} schema discrepancy(ies). Review below.`);
+    }
+  };
+
+  const handleFixSchemaDrift = async () => {
+    if (!tableData) return;
+    
+    const confirmed = window.confirm(
+      `Fix schema drift for "${tableData.display_name}"?\n\n` +
+      `This will update the stored schema definition to match the actual database table "${tableData.table_name}". ` +
+      `${schemaDrift.length} drift issue(s) will be resolved.`
+    );
+    
+    if (!confirmed) return;
+    
+    await syncFromDatabase();
+    
+    if (!syncing) {
+      setSchemaDrift([]);
     }
   };
 
@@ -1458,6 +1510,14 @@ export function TableSchemaEditor() {
               <History className="h-4 w-4 mr-2" />
               History
             </Button>
+            <Button
+              onClick={handleDeleteConnection}
+              variant="destructive"
+              size="sm"
+            >
+              <Trash className="h-4 w-4 mr-2" />
+              Delete Connection
+            </Button>
           </div>
         </div>
       </div>
@@ -1492,10 +1552,21 @@ export function TableSchemaEditor() {
       {schemaDrift.length > 0 && (
         <Card className="mb-6 border-orange-500">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-orange-500" />
-              Schema Drift Detected
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <AlertCircle className="h-5 w-5 text-orange-500" />
+                Schema Drift Detected
+              </CardTitle>
+              <Button 
+                onClick={handleFixSchemaDrift}
+                disabled={syncing}
+                size="sm"
+                variant="outline"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+                Fix Drift
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
