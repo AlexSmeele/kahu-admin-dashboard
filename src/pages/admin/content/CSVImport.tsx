@@ -6,6 +6,7 @@ import { ArrowLeft, Upload, CheckCircle, AlertCircle, Download } from "lucide-re
 import { useToast } from "@/hooks/use-toast";
 import { CSVUploader } from "@/components/admin/content/CSVUploader";
 import { CSVColumnMapper, CSVColumn, ColumnMapping } from "@/components/admin/content/CSVColumnMapper";
+import { ColumnGroupManager, ColumnGroup } from "@/components/admin/content/ColumnGroupManager";
 import { supabase } from "@/integrations/supabase/client";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -25,6 +26,7 @@ export default function CSVImport() {
   const [csvData, setCsvData] = useState<any[]>([]);
   const [columns, setColumns] = useState<CSVColumn[]>([]);
   const [mappings, setMappings] = useState<ColumnMapping[]>([]);
+  const [columnGroups, setColumnGroups] = useState<ColumnGroup[]>([]);
   const [importMode, setImportMode] = useState<'create' | 'import'>('create');
   const [newTableName, setNewTableName] = useState('');
   const [progress, setProgress] = useState(0);
@@ -56,6 +58,46 @@ export default function CSVImport() {
     })) return 'json';
 
     return 'text';
+  };
+
+  const detectColumnGroups = (cols: CSVColumn[]): ColumnGroup[] => {
+    const groups: Map<string, string[]> = new Map();
+    
+    cols.forEach(col => {
+      // Pattern 1: "Prefix Step N" (e.g., "Brief Step 1")
+      const match1 = col.name.match(/^(.+)\s+Step\s+(\d+)$/i);
+      if (match1) {
+        const [_, prefix, stepNum] = match1;
+        const key = prefix.trim();
+        if (!groups.has(key)) groups.set(key, []);
+        const index = parseInt(stepNum) - 1;
+        if (!groups.get(key)![index]) {
+          groups.get(key)![index] = col.name;
+        }
+      }
+      
+      // Pattern 2: "Prefix N" (e.g., "Brief 1")
+      const match2 = col.name.match(/^(.+)\s+(\d+)$/i);
+      if (match2 && !match1) {  // Only if Pattern 1 didn't match
+        const [_, prefix, num] = match2;
+        const key = prefix.trim();
+        if (!groups.has(key)) groups.set(key, []);
+        const index = parseInt(num) - 1;
+        if (!groups.get(key)![index]) {
+          groups.get(key)![index] = col.name;
+        }
+      }
+    });
+    
+    // Convert to ColumnGroup objects
+    return Array.from(groups.entries())
+      .filter(([_, colNames]) => colNames.filter(Boolean).length >= 2)
+      .map(([prefix, colNames], idx) => ({
+        id: `group_${idx}`,
+        targetField: prefix.toLowerCase().replace(/\s+/g, '_'),
+        sourceColumns: colNames.filter(Boolean),
+        dataType: 'json' as const,
+      }));
   };
 
   const parseCSV = (text: string): any[] => {
@@ -119,11 +161,20 @@ export default function CSVImport() {
       setColumns(analyzedColumns);
       setCsvData(dataRows);
       
-      // Initialize mappings
+      // Auto-detect column groups
+      const detectedGroups = detectColumnGroups(analyzedColumns);
+      setColumnGroups(detectedGroups);
+      
+      // Initialize mappings (mark grouped columns)
+      const groupedColumnNames = new Set(
+        detectedGroups.flatMap(g => g.sourceColumns)
+      );
+      
       const initialMappings: ColumnMapping[] = analyzedColumns.map(col => ({
         csvColumn: col.name,
         targetField: col.name.toLowerCase().replace(/\s+/g, '_'),
         dataType: col.detectedType,
+        isGrouped: groupedColumnNames.has(col.name),
       }));
       setMappings(initialMappings);
 
@@ -149,9 +200,16 @@ export default function CSVImport() {
   };
 
   const generateTableSQL = () => {
-    const fields = mappings
-      .filter(m => m.targetField)
-      .map(m => {
+    // Add column group fields
+    const groupFields = columnGroups.map(g => 
+      `  ${g.targetField} JSONB DEFAULT '[]'::jsonb`
+    );
+    
+    const fields = [
+      ...groupFields,
+      ...mappings
+        .filter(m => m.targetField && !m.isGrouped)
+        .map(m => {
         let sqlType = 'TEXT';
         switch (m.dataType) {
           case 'number': sqlType = 'NUMERIC'; break;
@@ -163,7 +221,7 @@ export default function CSVImport() {
         }
         return `  ${m.targetField} ${sqlType}`;
       })
-      .join(',\n');
+    ].join(',\n');
 
     return `-- Auto-generated from CSV import
 CREATE TABLE IF NOT EXISTS public.${newTableName} (
@@ -214,8 +272,20 @@ CREATE TRIGGER update_${newTableName}_updated_at
       
       const records = batch.map(row => {
         const record: any = {};
+        
+        // First, process column groups
+        columnGroups.forEach(group => {
+          const arrayValues = group.sourceColumns
+            .map(colName => row[colName])
+            .filter(val => val && val.trim())
+            .map(val => val.trim());
+          
+          record[group.targetField] = arrayValues.length > 0 ? arrayValues : [];
+        });
+        
+        // Then, process regular mappings (skip grouped columns)
         mappings.forEach(mapping => {
-          if (!mapping.targetField) return;
+          if (!mapping.targetField || mapping.isGrouped) return;
           
           let value = row[mapping.csvColumn];
           
@@ -341,11 +411,31 @@ CREATE TRIGGER update_${newTableName}_updated_at
             </CardContent>
           </Card>
 
+          <ColumnGroupManager
+            columns={columns}
+            groups={columnGroups}
+            onGroupsChange={(newGroups) => {
+              setColumnGroups(newGroups);
+              // Update mappings to mark grouped columns
+              const groupedColumnNames = new Set(
+                newGroups.flatMap(g => g.sourceColumns)
+              );
+              setMappings(prev =>
+                prev.map(m => ({
+                  ...m,
+                  isGrouped: groupedColumnNames.has(m.csvColumn),
+                }))
+              );
+            }}
+            groupedColumns={new Set(columnGroups.flatMap(g => g.sourceColumns))}
+          />
+
           <CSVColumnMapper
             columns={columns}
             mappings={mappings}
             onMappingChange={setMappings}
             mode={importMode}
+            groupedColumns={new Set(columnGroups.flatMap(g => g.sourceColumns))}
           />
 
           {importMode === 'create' && (
