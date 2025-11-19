@@ -76,6 +76,7 @@ export function TableSchemaEditor() {
   const [migrationProgress, setMigrationProgress] = useState(0);
   const [isMigrating, setIsMigrating] = useState(false);
   const [batchStatus, setBatchStatus] = useState<Array<{ batch: number; success: boolean; error?: string; rowsProcessed: number }>>([]);
+  const [columnIndexes, setColumnIndexes] = useState<Array<{ indexName: string; columnName: string; indexDef: string }>>([]);
 
   useEffect(() => {
     loadTableSchema();
@@ -130,6 +131,35 @@ export function TableSchemaEditor() {
       
     } catch (error: any) {
       console.error("Error loading database schema:", error);
+    }
+
+    // Load indexes for the table
+    await loadTableIndexes(tableName);
+  };
+
+  const loadTableIndexes = async (tableName: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('introspect-schema', {
+        body: { tableName },
+      });
+
+      if (error) {
+        console.warn("Could not load indexes:", error);
+        return;
+      }
+
+      const indexes = data?.indexes || [];
+      const parsedIndexes = indexes.map((idx: any) => ({
+        indexName: idx.index_name,
+        columnName: idx.column_name,
+        indexDef: idx.index_definition,
+      }));
+
+      setColumnIndexes(parsedIndexes);
+      console.log('Loaded indexes:', parsedIndexes);
+    } catch (error: any) {
+      console.warn("Could not load indexes:", error);
+      // Non-critical, continue without index information
     }
   };
 
@@ -283,6 +313,24 @@ export function TableSchemaEditor() {
     const tableName = tableData.table_name;
     let sql = `-- Schema modifications for ${tableData.display_name}\n\n`;
 
+    // Identify affected columns and their indexes
+    const affectedColumns = changes
+      .filter(c => c.type === 'modify' || c.type === 'delete')
+      .map(c => c.columnName);
+
+    const affectedIndexes = columnIndexes.filter(idx => 
+      affectedColumns.includes(idx.columnName)
+    );
+
+    // Drop indexes before migration for better performance
+    if (affectedIndexes.length > 0) {
+      sql += `-- Drop indexes for performance during migration\n`;
+      affectedIndexes.forEach(idx => {
+        sql += `DROP INDEX IF EXISTS ${idx.indexName};\n`;
+      });
+      sql += `\n`;
+    }
+
     changes.forEach(change => {
       switch (change.type) {
         case 'rename':
@@ -369,6 +417,23 @@ export function TableSchemaEditor() {
       }
     });
 
+    // Recreate indexes after migration
+    if (affectedIndexes.length > 0) {
+      sql += `\n-- Recreate indexes after migration\n`;
+      affectedIndexes.forEach(idx => {
+        // Only recreate if column still exists (not deleted)
+        const isDeleted = changes.some(c => c.type === 'delete' && c.columnName === idx.columnName);
+        if (!isDeleted) {
+          sql += `${idx.indexDef};\n`;
+        }
+      });
+      sql += `\n`;
+    }
+
+    // Add ANALYZE for query planner optimization
+    sql += `-- Update statistics for query planner\n`;
+    sql += `ANALYZE ${tableName};\n`;
+
     return sql;
   };
 
@@ -424,6 +489,33 @@ export function TableSchemaEditor() {
     const warnings: string[] = [];
     let affectedRows = 0;
     let hasBlockingIssues = false;
+
+    // Check for table locks and estimated downtime
+    const hasStructuralChanges = changes.some(c => 
+      c.type === 'add' || c.type === 'delete' || 
+      (c.type === 'modify' && (c.oldValue?.type !== c.newValue?.type || c.oldValue?.nullable !== c.newValue?.nullable))
+    );
+
+    if (hasStructuralChanges && affectedRows > 1000) {
+      const estimatedSeconds = Math.ceil(affectedRows / 1000); // Rough estimate: 1000 rows per second
+      warnings.push(`⚠️ TABLE LOCK WARNING: This migration will lock the table for approximately ${estimatedSeconds}s during execution. Plan maintenance window accordingly.`);
+    }
+
+    // Check for index operations
+    const affectedColumns = changes
+      .filter(c => c.type === 'modify' || c.type === 'delete')
+      .map(c => c.columnName);
+
+    const affectedIndexes = columnIndexes.filter(idx => 
+      affectedColumns.includes(idx.columnName)
+    );
+
+    if (affectedIndexes.length > 0) {
+      warnings.push(`📊 PERFORMANCE: ${affectedIndexes.length} index(es) will be dropped and recreated for optimal migration performance.`);
+      affectedIndexes.forEach(idx => {
+        warnings.push(`  - Index: ${idx.indexName} on column ${idx.columnName}`);
+      });
+    }
 
     // Check for destructive changes
     for (const change of changes) {
