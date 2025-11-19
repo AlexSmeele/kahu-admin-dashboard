@@ -54,7 +54,7 @@ export function CSVImportBuilder({ sectionId }: CSVImportBuilderProps) {
   const [progress, setProgress] = useState(0);
   const [importStats, setImportStats] = useState({ success: 0, failed: 0, total: 0 });
   const [errors, setErrors] = useState<string[]>([]);
-  const [detailedErrors, setDetailedErrors] = useState<Array<{ row: number; field?: string; error: string }>>([]);
+  const [detailedErrors, setDetailedErrors] = useState<Array<{ row: number; field?: string; error: string; type: 'validation' | 'insert' }>>([]);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [tableNameError, setTableNameError] = useState<string>('');
   const [validationResults, setValidationResults] = useState<{
@@ -64,6 +64,7 @@ export function CSVImportBuilder({ sectionId }: CSVImportBuilderProps) {
   } | null>(null);
   const [showValidation, setShowValidation] = useState(false);
   const [conflictStrategy, setConflictStrategy] = useState<'skip' | 'upsert' | 'fail'>('fail');
+  const [showImportConfirm, setShowImportConfirm] = useState(false);
 
   // Detect primary key columns from schema
   const detectPrimaryKeys = (): string[] => {
@@ -667,7 +668,8 @@ export function CSVImportBuilder({ sectionId }: CSVImportBuilderProps) {
           batch.forEach((row, idx) => {
             setDetailedErrors(prev => [...prev, {
               row: i + idx + 1,
-              error: insertError.message
+              error: insertError.message,
+              type: 'insert' as const
             }]);
           });
           
@@ -1025,10 +1027,137 @@ export function CSVImportBuilder({ sectionId }: CSVImportBuilderProps) {
               Preview SQL
             </Button>
           )}
-          <Button onClick={handleImport} size="lg">
+          <Button onClick={() => setShowImportConfirm(true)} size="lg">
             {importMode === 'create' ? 'Create Table & Import Data' : 'Import Data'}
           </Button>
         </div>
+
+        {/* Import Confirmation Dialog */}
+        <Dialog open={showImportConfirm} onOpenChange={setShowImportConfirm}>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Confirm Import</DialogTitle>
+              <DialogDescription>
+                Review the import settings before proceeding
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 p-4 bg-muted rounded-lg">
+                <div>
+                  <div className="text-sm font-medium text-muted-foreground">Import Mode</div>
+                  <div className="text-lg font-semibold capitalize">{importMode}</div>
+                </div>
+                <div>
+                  <div className="text-sm font-medium text-muted-foreground">Target Table</div>
+                  <div className="text-lg font-semibold font-mono">
+                    {importMode === 'create' ? newTableName : selectedExistingTableName}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-sm font-medium text-muted-foreground">Total Rows</div>
+                  <div className="text-lg font-semibold">{csvData.length}</div>
+                </div>
+                <div>
+                  <div className="text-sm font-medium text-muted-foreground">Columns Mapped</div>
+                  <div className="text-lg font-semibold">{mappings.length + columnGroups.length}</div>
+                </div>
+                {importMode === 'import' && (
+                  <div className="col-span-2">
+                    <div className="text-sm font-medium text-muted-foreground">Conflict Strategy</div>
+                    <div className="text-lg font-semibold capitalize">{conflictStrategy}</div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      {conflictStrategy === 'fail' && 'Import will fail if duplicate records are found'}
+                      {conflictStrategy === 'skip' && 'Duplicate records will be skipped'}
+                      {conflictStrategy === 'upsert' && 'Existing records will be updated'}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="border rounded-lg p-4">
+                <div className="font-medium mb-2">Column Mappings ({mappings.length})</div>
+                <ScrollArea className="h-32">
+                  <div className="space-y-1 text-sm">
+                    {mappings.slice(0, 20).map((mapping, i) => (
+                      <div key={i} className="flex items-center justify-between py-1 border-b">
+                        <span className="text-muted-foreground">{mapping.csvColumn}</span>
+                        <span>→</span>
+                        <span className="font-mono">{mapping.targetField}</span>
+                        <span className="text-xs text-muted-foreground">({mapping.dataType})</span>
+                      </div>
+                    ))}
+                    {mappings.length > 20 && (
+                      <div className="text-muted-foreground text-center py-2">
+                        ...and {mappings.length - 20} more columns
+                      </div>
+                    )}
+                  </div>
+                </ScrollArea>
+              </div>
+
+              {columnGroups.length > 0 && (
+                <div className="border rounded-lg p-4">
+                  <div className="font-medium mb-2">Column Groups ({columnGroups.length})</div>
+                  <div className="space-y-2 text-sm">
+                    {columnGroups.map((group, i) => (
+                      <div key={i} className="p-2 bg-muted rounded">
+                        <div className="font-mono font-medium">{group.targetField}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {group.sourceColumns.length} columns → JSONB array
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {validationResults && (
+                <Alert variant={validationResults.errors.length > 0 ? 'destructive' : 'default'}>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    <div className="space-y-1">
+                      <div className="font-semibold">
+                        Validation: {validationResults.valid}/{csvData.length} rows valid
+                      </div>
+                      {validationResults.errors.length > 0 && (
+                        <div className="text-xs text-destructive">
+                          ❌ {validationResults.errors.length} errors found
+                        </div>
+                      )}
+                      {validationResults.warnings.length > 0 && (
+                        <div className="text-xs text-amber-600">
+                          ⚠️ {validationResults.warnings.length} warnings
+                        </div>
+                      )}
+                    </div>
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {importMode === 'create' && (
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription className="text-xs">
+                    A new table will be created with RLS policies restricting access to admin users only.
+                  </AlertDescription>
+                </Alert>
+              )}
+            </div>
+
+            <div className="flex gap-2 justify-end mt-4">
+              <Button variant="outline" onClick={() => setShowImportConfirm(false)}>
+                Cancel
+              </Button>
+              <Button onClick={() => {
+                setShowImportConfirm(false);
+                handleImport();
+              }}>
+                Confirm & Start Import
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
@@ -1118,23 +1247,65 @@ export function CSVImportBuilder({ sectionId }: CSVImportBuilderProps) {
             <Alert>
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
-                <div className="font-semibold mb-2">Detailed Row Errors ({detailedErrors.length}):</div>
-                <ScrollArea className="h-48 w-full">
-                  <div className="space-y-1 text-xs">
-                    {detailedErrors.slice(0, 50).map((err, i) => (
-                      <div key={i} className="border-b pb-1">
-                        <span className="font-medium">Row {err.row}:</span>
-                        {err.field && <span className="text-muted-foreground"> ({err.field})</span>}
-                        <span className="text-red-600 ml-2">{err.error}</span>
+                <div className="font-semibold mb-2">
+                  Detailed Row Errors ({detailedErrors.length})
+                </div>
+                
+                {/* Group errors by type */}
+                {(() => {
+                  const validationErrors = detailedErrors.filter(e => e.type === 'validation');
+                  const insertErrors = detailedErrors.filter(e => e.type === 'insert');
+                  
+                  return (
+                    <ScrollArea className="h-48 w-full">
+                      <div className="space-y-3 text-xs">
+                        {validationErrors.length > 0 && (
+                          <div>
+                            <div className="font-medium text-amber-600 mb-1">
+                              ⚠️ Validation Errors ({validationErrors.length})
+                            </div>
+                            <div className="space-y-1 ml-2">
+                              {validationErrors.slice(0, 25).map((err, i) => (
+                                <div key={i} className="border-b pb-1">
+                                  <span className="font-medium">Row {err.row}:</span>
+                                  {err.field && <span className="text-muted-foreground"> ({err.field})</span>}
+                                  <span className="text-amber-600 ml-2">{err.error}</span>
+                                </div>
+                              ))}
+                              {validationErrors.length > 25 && (
+                                <div className="text-muted-foreground pt-1">
+                                  ...and {validationErrors.length - 25} more validation errors
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {insertErrors.length > 0 && (
+                          <div>
+                            <div className="font-medium text-red-600 mb-1">
+                              ❌ Insert Errors ({insertErrors.length})
+                            </div>
+                            <div className="space-y-1 ml-2">
+                              {insertErrors.slice(0, 25).map((err, i) => (
+                                <div key={i} className="border-b pb-1">
+                                  <span className="font-medium">Row {err.row}:</span>
+                                  {err.field && <span className="text-muted-foreground"> ({err.field})</span>}
+                                  <span className="text-red-600 ml-2">{err.error}</span>
+                                </div>
+                              ))}
+                              {insertErrors.length > 25 && (
+                                <div className="text-muted-foreground pt-1">
+                                  ...and {insertErrors.length - 25} more insert errors
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    ))}
-                    {detailedErrors.length > 50 && (
-                      <div className="text-muted-foreground pt-2">
-                        ...and {detailedErrors.length - 50} more errors
-                      </div>
-                    )}
-                  </div>
-                </ScrollArea>
+                    </ScrollArea>
+                  );
+                })()}
               </AlertDescription>
             </Alert>
           )}
