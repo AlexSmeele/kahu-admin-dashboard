@@ -34,30 +34,27 @@ interface NavItem {
   children?: NavItem[];
 }
 
-const navigation: NavItem[] = [
+interface Section {
+  id: string;
+  name: string;
+  display_name: string;
+  order_index: number;
+  is_active: boolean;
+}
+
+interface ContentTable {
+  id: string;
+  section_id: string;
+  name: string;
+  display_name: string;
+  is_active: boolean;
+}
+
+// Base navigation items that don't come from dynamic sections
+const baseNavigation: NavItem[] = [
   { title: "Overview", href: "/admin", icon: LayoutDashboard },
   { title: "Users & Usage", href: "/admin/users", icon: Users },
-  {
-    title: "Training Content",
-    href: "/admin/training",
-    icon: GraduationCap,
-    children: [
-      { title: "Skills", href: "/admin/training/skills", icon: FileText },
-      { title: "Foundation Modules", href: "/admin/training/modules", icon: FileText },
-      { title: "Troubleshooting", href: "/admin/training/troubleshooting", icon: FileText },
-    ],
-  },
   { title: "Media Library", href: "/admin/media", icon: Image },
-  {
-    title: "Dog Knowledge Base",
-    href: "/admin/dogs",
-    icon: Dog,
-    children: [
-      { title: "Breeds", href: "/admin/dogs/breeds", icon: Dog },
-      { title: "Vaccines", href: "/admin/dogs/vaccines", icon: FileText },
-      { title: "Treatments", href: "/admin/dogs/treatments", icon: FileText },
-    ],
-  },
   { title: "Content Manager", href: "/admin/content/sections", icon: Layers },
   { title: "Invite Codes", href: "/admin/invites", icon: Ticket },
   { title: "System & Logs", href: "/admin/system", icon: Settings },
@@ -68,6 +65,7 @@ export function AdminLayout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [isAuthorized, setIsAuthorized] = useState(false);
+  const [navigation, setNavigation] = useState<NavItem[]>(baseNavigation);
   const location = useLocation();
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
@@ -75,7 +73,61 @@ export function AdminLayout() {
 
   useEffect(() => {
     checkAuth();
+    fetchDynamicSections();
   }, []);
+
+  const fetchDynamicSections = async () => {
+    try {
+      // Fetch all active sections
+      const { data: sections, error: sectionsError } = await supabase
+        .from("admin_sections")
+        .select("*")
+        .eq("is_active", true)
+        .order("order_index", { ascending: true });
+
+      if (sectionsError) throw sectionsError;
+      if (!sections || sections.length === 0) return;
+
+      // Fetch all active content tables
+      const { data: tables, error: tablesError } = await supabase
+        .from("admin_content_tables")
+        .select("*")
+        .eq("is_active", true)
+        .order("order_index", { ascending: true });
+
+      if (tablesError) throw tablesError;
+
+      // Build navigation items from sections and tables
+      const dynamicNavItems: NavItem[] = sections.map((section: Section) => {
+        const sectionTables = (tables || []).filter(
+          (table: ContentTable) => table.section_id === section.id
+        );
+
+        return {
+          title: section.display_name,
+          href: `/admin/content/sections/${section.id}`,
+          icon: Layers,
+          children: sectionTables.map((table: ContentTable) => ({
+            title: table.display_name,
+            href: `/admin/content/sections/${section.id}/tables/${table.id}/records`,
+            icon: FileText,
+          })),
+        };
+      });
+
+      // Insert dynamic sections after "Users & Usage" (index 1)
+      const updatedNav = [
+        ...baseNavigation.slice(0, 2), // Overview, Users & Usage
+        ...dynamicNavItems,              // Dynamic sections
+        ...baseNavigation.slice(2),      // Media Library, Content Manager, etc.
+      ];
+
+      setNavigation(updatedNav);
+    } catch (error: any) {
+      console.error("Error fetching dynamic sections:", error);
+      toast.error("Failed to load content sections");
+    }
+  };
 
   const checkAuth = async () => {
     const { data: { user } } = await supabase.auth.getUser();
