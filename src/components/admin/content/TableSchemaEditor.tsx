@@ -59,9 +59,12 @@ export function TableSchemaEditor() {
   const [showMigrationPreview, setShowMigrationPreview] = useState(false);
   const [migrationImpact, setMigrationImpact] = useState<{
     affectedRows?: number;
+    estimatedTime?: string;
+    safeOperations: string[];
     warnings: string[];
+    blockers: string[];
     canProceed: boolean;
-  }>({ warnings: [], canProceed: true });
+  }>({ safeOperations: [], warnings: [], blockers: [], canProceed: true });
   const [saving, setSaving] = useState(false);
   const [databaseSchema, setDatabaseSchema] = useState<any[]>([]);
   const [foreignKeys, setForeignKeys] = useState<ForeignKeyConstraint[]>([]);
@@ -483,22 +486,113 @@ export function TableSchemaEditor() {
     setFields(newFields);
   };
 
+  // Enhanced validation: Check for reverse FK references (tables referencing this table)
+  const validateForeignKeyImpact = async (columnName: string): Promise<{ blockers: string[]; warnings: string[] }> => {
+    const blockers: string[] = [];
+    const warnings: string[] = [];
+
+    if (!tableData) return { blockers, warnings };
+
+    try {
+      // Query information_schema to find tables that reference this column via FK
+      const { data, error } = await supabase.rpc('exec_sql', {
+        sql_query: `
+          SELECT 
+            tc.table_name as referencing_table,
+            kcu.column_name as referencing_column,
+            tc.constraint_name
+          FROM information_schema.table_constraints tc
+          JOIN information_schema.key_column_usage kcu 
+            ON tc.constraint_name = kcu.constraint_name
+          JOIN information_schema.constraint_column_usage ccu 
+            ON ccu.constraint_name = tc.constraint_name
+          WHERE tc.constraint_type = 'FOREIGN KEY'
+            AND ccu.table_name = '${tableData.table_name}'
+            AND ccu.column_name = '${columnName}'
+        `
+      });
+
+      if (!error && data) {
+        // Parse the result (exec_sql returns text)
+        try {
+          const result = JSON.parse(data);
+          if (Array.isArray(result) && result.length > 0) {
+            result.forEach((ref: any) => {
+              blockers.push(`❌ BLOCKING: Table "${ref.referencing_table}" has foreign key "${ref.constraint_name}" referencing this column. Drop the FK constraint first.`);
+            });
+          }
+        } catch (parseError) {
+          console.warn('Could not parse FK check result:', parseError);
+        }
+      }
+    } catch (error) {
+      console.warn('FK impact check failed:', error);
+      warnings.push(`⚠️ Could not verify foreign key impact. Manual verification recommended.`);
+    }
+
+    return { blockers, warnings };
+  };
+
+  // Enhanced validation: Check large table impact with time estimation
+  const validateLargeTableImpact = async (): Promise<{ warnings: string[]; estimatedTime: string }> => {
+    const warnings: string[] = [];
+    let estimatedTime = '';
+
+    if (!tableData) return { warnings, estimatedTime };
+
+    try {
+      const { count: totalRows } = await supabase
+        .from(tableData.table_name)
+        .select('*', { count: 'exact', head: true });
+
+      if (totalRows) {
+        const LARGE_TABLE_THRESHOLD = 100000;
+        const VERY_LARGE_TABLE_THRESHOLD = 500000;
+
+        if (totalRows > VERY_LARGE_TABLE_THRESHOLD) {
+          const estimatedMinutes = Math.ceil(totalRows / 10000); // ~10k rows/minute for complex migrations
+          estimatedTime = `${estimatedMinutes} minutes`;
+          warnings.push(`⚠️ VERY LARGE TABLE: ${totalRows.toLocaleString()} rows. Estimated migration time: ~${estimatedMinutes} minutes. Schedule during maintenance window.`);
+          warnings.push(`💡 TIP: Consider using batch migration strategy and test on a staging environment first.`);
+        } else if (totalRows > LARGE_TABLE_THRESHOLD) {
+          const estimatedSeconds = Math.ceil(totalRows / 1000);
+          estimatedTime = `${estimatedSeconds} seconds`;
+          warnings.push(`⚠️ LARGE TABLE: ${totalRows.toLocaleString()} rows. Estimated migration time: ~${estimatedSeconds}s. Plan for brief downtime.`);
+        } else if (totalRows > 10000) {
+          estimatedTime = '< 10 seconds';
+          warnings.push(`📊 Medium table size: ${totalRows.toLocaleString()} rows. Migration should complete quickly.`);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to check table size:', error);
+    }
+
+    return { warnings, estimatedTime };
+  };
+
   const handlePreviewMigration = async () => {
     if (!tableData) return;
 
-    const warnings: string[] = [];
     let affectedRows = 0;
-    let hasBlockingIssues = false;
+    const safeOperations: string[] = [];
+    const warnings: string[] = [];
+    const blockers: string[] = [];
+    let estimatedTime = '';
 
-    // Check for table locks and estimated downtime
+    // Check large table impact first
+    const { warnings: sizeWarnings, estimatedTime: timeEstimate } = await validateLargeTableImpact();
+    warnings.push(...sizeWarnings);
+    estimatedTime = timeEstimate;
+
+    // Check for structural changes (those requiring table lock)
     const hasStructuralChanges = changes.some(c => 
       c.type === 'add' || c.type === 'delete' || 
-      (c.type === 'modify' && (c.oldValue?.type !== c.newValue?.type || c.oldValue?.nullable !== c.newValue?.nullable))
+      (c.type === 'modify' && c.oldValue?.type !== c.newValue?.type)
     );
 
     if (hasStructuralChanges && affectedRows > 1000) {
       const estimatedSeconds = Math.ceil(affectedRows / 1000); // Rough estimate: 1000 rows per second
-      warnings.push(`⚠️ TABLE LOCK WARNING: This migration will lock the table for approximately ${estimatedSeconds}s during execution. Plan maintenance window accordingly.`);
+      warnings.push(`⚠️ TABLE LOCK WARNING: This migration will lock the table for approximately ${estimatedSeconds}s during execution.`);
     }
 
     // Check for index operations
@@ -511,23 +605,27 @@ export function TableSchemaEditor() {
     );
 
     if (affectedIndexes.length > 0) {
-      warnings.push(`📊 PERFORMANCE: ${affectedIndexes.length} index(es) will be dropped and recreated for optimal migration performance.`);
+      warnings.push(`📊 PERFORMANCE: ${affectedIndexes.length} index(es) will be dropped and recreated for optimal migration.`);
       affectedIndexes.forEach(idx => {
         warnings.push(`  - Index: ${idx.indexName} on column ${idx.columnName}`);
       });
     }
 
-    // Check for destructive changes
+    // Analyze each change
     for (const change of changes) {
       if (change.type === 'delete') {
         const columnName = change.columnName;
+        
+        // Check for reverse FK references (other tables pointing to this column)
+        const { blockers: fkBlockers, warnings: fkWarnings } = await validateForeignKeyImpact(columnName);
+        blockers.push(...fkBlockers);
+        warnings.push(...fkWarnings);
         
         // Check if column has foreign key constraints
         const fkReferences = foreignKeys.filter(fk => fk.column_name === columnName);
         if (fkReferences.length > 0) {
           fkReferences.forEach(fk => {
-            warnings.push(`❌ BLOCKING: Column "${columnName}" has foreign key constraint to ${fk.foreign_table}.${fk.foreign_column} (${fk.constraint_name}). Drop constraint first.`);
-            hasBlockingIssues = true;
+            blockers.push(`❌ BLOCKING: Column "${columnName}" has foreign key constraint to ${fk.foreign_table}.${fk.foreign_column} (${fk.constraint_name}). Drop constraint first.`);
           });
         }
 
@@ -538,7 +636,7 @@ export function TableSchemaEditor() {
         );
         if (uniqueConstraints.length > 0) {
           uniqueConstraints.forEach(c => {
-            warnings.push(`⚠️ WARNING: Column "${columnName}" has ${c.constraint_type} constraint (${c.constraint_name}). This will be dropped.`);
+            warnings.push(`⚠️ Column "${columnName}" has ${c.constraint_type} constraint (${c.constraint_name}). This will be dropped.`);
           });
         }
 
@@ -566,15 +664,41 @@ export function TableSchemaEditor() {
         if (oldField && newField) {
           // Type change validation
           if (oldField.type !== newField.type) {
-            warnings.push(`🔄 Column "${columnName}" type changing from ${oldField.type} to ${newField.type}`);
-            
-            // Validate conversion safety
+            // Validate conversion safety with enhanced logic
             const conversionSafe = validateTypeConversionSafety(oldField.type, newField.type);
-            if (!conversionSafe.safe) {
-              warnings.push(`⚠️ WARNING: ${conversionSafe.warning}`);
-              if (conversionSafe.blocking) {
-                hasBlockingIssues = true;
+            
+            if (conversionSafe.safe) {
+              safeOperations.push(`✅ Column "${columnName}" type changing from ${oldField.type} to ${newField.type} (safe conversion)`);
+            } else if (conversionSafe.blocking) {
+              blockers.push(`❌ BLOCKING: ${conversionSafe.warning} for column "${columnName}"`);
+              
+              // Enhanced array-to-scalar detection with data preview
+              if ((oldField.type === 'array' || oldField.type === 'multiselect') && 
+                  (newField.type !== 'array' && newField.type !== 'multiselect')) {
+                blockers.push(`💡 Converting array to single value will result in data loss. Only the first element will be retained.`);
+                
+                // Show sample data preview
+                try {
+                  const { data: sampleData } = await supabase
+                    .from(tableData.table_name)
+                    .select(columnName)
+                    .not(columnName, 'is', null)
+                    .limit(3);
+                  
+                  if (sampleData && sampleData.length > 0) {
+                    blockers.push(`📋 Sample data preview:`);
+                    sampleData.forEach((row: any, idx: number) => {
+                      const value = row[columnName];
+                      const arrayValue = Array.isArray(value) ? value : [value];
+                      blockers.push(`  Row ${idx + 1}: [${arrayValue.join(', ')}] → "${arrayValue[0] || ''}"`);
+                    });
+                  }
+                } catch (error) {
+                  console.error('Failed to fetch sample data:', error);
+                }
               }
+            } else {
+              warnings.push(`⚠️ ${conversionSafe.warning} for column "${columnName}"`);
             }
             
             // Count all rows with data
@@ -592,24 +716,37 @@ export function TableSchemaEditor() {
               console.error('Error counting rows:', error);
             }
           }
-          
-          // Nullable to NOT NULL validation
-          if (oldField.nullable && !newField.nullable) {
-            warnings.push(`⚠️ Column "${columnName}" will require values (NOT NULL)`);
-            
-            // Check for existing NULL values
+
+          // Enhanced NOT NULL constraint validation
+          if (!oldField.nullable && newField.nullable) {
+            safeOperations.push(`✅ Column "${columnName}" will allow NULL values (safe change)`);
+          } else if (oldField.nullable && !newField.nullable) {
+            // Check for existing NULL values with detailed reporting
             try {
-              const { count } = await supabase
+              const { count: nullCount } = await supabase
                 .from(tableData.table_name)
                 .select('*', { count: 'exact', head: true })
                 .is(columnName, null);
               
-              if (count && count > 0) {
-                warnings.push(`❌ BLOCKING: ${count} rows have NULL values. Cannot add NOT NULL constraint.`);
-                hasBlockingIssues = true;
+              if (nullCount && nullCount > 0) {
+                blockers.push(`❌ BLOCKING: ${nullCount} rows have NULL values in "${columnName}". Cannot add NOT NULL constraint.`);
+                blockers.push(`💡 FIX: Run this SQL first: UPDATE ${tableData.table_name} SET ${columnName} = <default_value> WHERE ${columnName} IS NULL;`);
+                
+                // Show percentage
+                const { count: totalCount } = await supabase
+                  .from(tableData.table_name)
+                  .select('*', { count: 'exact', head: true });
+                
+                if (totalCount) {
+                  const percentage = ((nullCount / totalCount) * 100).toFixed(1);
+                  blockers.push(`📊 ${percentage}% of rows have NULL values`);
+                }
+              } else {
+                safeOperations.push(`✅ Column "${columnName}" has no NULL values. NOT NULL constraint can be safely added.`);
               }
             } catch (error) {
               console.error('Error counting NULL rows:', error);
+              warnings.push(`⚠️ Could not verify NULL values in "${columnName}". Manual check recommended.`);
             }
           }
 
@@ -620,13 +757,39 @@ export function TableSchemaEditor() {
               warnings.push(`⚠️ Type change affects foreign key: ${fk.constraint_name} → ${fk.foreign_table}.${fk.foreign_column}`);
             });
           }
+
+          // Track other safe modifications
+          if (oldField.label !== newField.label) {
+            safeOperations.push(`✅ Column "${columnName}" label updated`);
+          }
+          if (oldField.description !== newField.description) {
+            safeOperations.push(`✅ Column "${columnName}" description updated`);
+          }
         }
+      } else if (change.type === 'add') {
+        const newField = change.newValue;
+        if (newField) {
+          if (newField.nullable) {
+            safeOperations.push(`✅ Adding nullable column "${change.columnName}" (${newField.type}) - safe operation`);
+          } else if (newField.default_value) {
+            safeOperations.push(`✅ Adding NOT NULL column "${change.columnName}" with default value - safe operation`);
+          } else {
+            warnings.push(`⚠️ Adding NOT NULL column "${change.columnName}" without default value. Ensure table is empty or provide default.`);
+          }
+        }
+      } else if (change.type === 'rename') {
+        safeOperations.push(`✅ Renaming column "${change.oldValue?.name}" to "${change.newValue?.name}" (metadata only)`);
       }
     }
 
+    const hasBlockingIssues = blockers.length > 0;
+
     setMigrationImpact({
       affectedRows,
+      estimatedTime,
+      safeOperations,
       warnings,
+      blockers,
       canProceed: !hasBlockingIssues
     });
     setShowMigrationPreview(true);
@@ -975,18 +1138,34 @@ export function TableSchemaEditor() {
         console.log('DDL execution successful:', ddlResult);
       }
 
-      // Log migration to history
+      // Log migration to history with validation warnings
       try {
         const { data: userData } = await supabase.auth.getUser();
+        
+        // Include validation summary in metadata
+        const validationMetadata = {
+          safeOperations: migrationImpact.safeOperations,
+          warnings: migrationImpact.warnings,
+          blockers: migrationImpact.blockers,
+          userProceededDespiteWarnings: migrationImpact.warnings.length > 0,
+          affectedRows: migrationImpact.affectedRows,
+          estimatedTime: migrationImpact.estimatedTime
+        };
+        
         await supabase.from('schema_migration_history').insert([{
           table_id: tableId as string,
           table_name: tableData.table_name,
           migration_type: useBatchMigration ? 'batch_schema_modification' : 'schema_modification',
-          changes: changes as any,
+          changes: { 
+            schemaChanges: changes, 
+            validation: validationMetadata,
+            usedCopyStrategy: useCopyStrategy,
+            customTransformations: customTransformations
+          } as any,
           sql_executed: sql,
           executed_by: userData.user?.id || null,
           success: true,
-          affected_rows: batchMigrationData?.totalRows || null,
+          affected_rows: batchMigrationData?.totalRows || migrationImpact.affectedRows || null,
         }]);
       } catch (historyError) {
         console.warn('Failed to log migration history:', historyError);
