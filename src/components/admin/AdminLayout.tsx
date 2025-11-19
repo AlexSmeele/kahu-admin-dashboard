@@ -97,19 +97,28 @@ export function AdminLayout() {
 
       if (tablesError) throw tablesError;
 
+      // Icon mapping from string names to Lucide icons
+      const iconMap: Record<string, any> = {
+        GraduationCap,
+        Dog,
+        Layers,
+        FileText,
+      };
+
       // Build navigation items from sections and tables
-      const dynamicNavItems: NavItem[] = sections.map((section: Section) => {
+      const dynamicNavItems: NavItem[] = sections.map((section: any) => {
         const sectionTables = (tables || []).filter(
-          (table: ContentTable) => table.section_id === section.id
+          (table: any) => table.section_id === section.id
         );
 
         return {
           title: section.display_name,
           href: `/admin/content/sections/${section.id}`,
-          icon: Layers,
-          children: sectionTables.map((table: ContentTable) => ({
+          icon: iconMap[section.icon || "Layers"] || Layers,
+          children: sectionTables.map((table: any) => ({
             title: table.display_name,
-            href: `/admin/content/sections/${section.id}/tables/${table.id}`,
+            // Use route_override if present, otherwise use dynamic route
+            href: table.route_override || `/admin/content/sections/${section.id}/tables/${table.id}`,
             icon: FileText,
           })),
         };
