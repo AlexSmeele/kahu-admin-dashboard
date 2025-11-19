@@ -29,6 +29,7 @@ const AdminSections = lazy(() => import("./pages/admin/content/Sections"));
 const AdminSectionDetail = lazy(() => import("./pages/admin/content/SectionDetail"));
 const AdminContentTables = lazy(() => import("./pages/admin/content/ContentTables"));
 const AdminTableSchemaBuilder = lazy(() => import("./pages/admin/content/TableSchemaBuilder"));
+const AdminCSVImport = lazy(() => import("./pages/admin/content/CSVImport"));
 
 const queryClient = new QueryClient();
 
@@ -64,6 +65,7 @@ const App = () => (
               <Route path="content/sections/:id" element={<AdminSectionDetail />} />
               <Route path="content/sections/:sectionId/tables" element={<AdminContentTables />} />
               <Route path="content/sections/:sectionId/tables/:tableId" element={<AdminTableSchemaBuilder />} />
+              <Route path="content/sections/:sectionId/import" element={<AdminCSVImport />} />
             </Route>
 
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
