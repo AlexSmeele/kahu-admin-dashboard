@@ -19,6 +19,8 @@ export interface ColumnMapping {
   targetField: string;
   dataType: string;
   transform?: string;
+  isGrouped?: boolean;
+  groupId?: string;
 }
 
 interface CSVColumnMapperProps {
@@ -27,6 +29,7 @@ interface CSVColumnMapperProps {
   mappings: ColumnMapping[];
   onMappingChange: (mappings: ColumnMapping[]) => void;
   mode: 'create' | 'import';
+  groupedColumns?: Set<string>;
 }
 
 const dataTypes = [
@@ -45,6 +48,7 @@ export function CSVColumnMapper({
   mappings,
   onMappingChange,
   mode,
+  groupedColumns = new Set(),
 }: CSVColumnMapperProps) {
   const updateMapping = (csvColumn: string, updates: Partial<ColumnMapping>) => {
     const newMappings = mappings.map((m) =>
@@ -81,9 +85,17 @@ export function CSVColumnMapper({
             <TableBody>
               {columns.map((column) => {
                 const mapping = mappings.find((m) => m.csvColumn === column.name);
+                const isGrouped = groupedColumns.has(column.name);
                 return (
-                  <TableRow key={column.name}>
-                    <TableCell className="font-medium">{column.name}</TableCell>
+                  <TableRow key={column.name} className={isGrouped ? "opacity-50" : ""}>
+                    <TableCell className="font-medium">
+                      {column.name}
+                      {isGrouped && (
+                        <Badge variant="secondary" className="ml-2 text-xs">
+                          Grouped
+                        </Badge>
+                      )}
+                    </TableCell>
                     <TableCell>
                       <Badge variant="outline">{column.detectedType}</Badge>
                     </TableCell>
@@ -100,6 +112,7 @@ export function CSVColumnMapper({
                           }
                           className="w-full px-2 py-1 border rounded text-sm"
                           placeholder="field_name"
+                          disabled={isGrouped}
                         />
                       ) : (
                         <Select
@@ -107,6 +120,7 @@ export function CSVColumnMapper({
                           onValueChange={(value) =>
                             updateMapping(column.name, { targetField: value })
                           }
+                          disabled={isGrouped}
                         >
                           <SelectTrigger className="w-full">
                             <SelectValue placeholder="Select field..." />
@@ -128,6 +142,7 @@ export function CSVColumnMapper({
                         onValueChange={(value) =>
                           updateMapping(column.name, { dataType: value })
                         }
+                        disabled={isGrouped}
                       >
                         <SelectTrigger className="w-full">
                           <SelectValue />
