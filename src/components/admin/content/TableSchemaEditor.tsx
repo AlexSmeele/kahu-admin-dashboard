@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { ArrowLeft, Plus, Eye, Save, AlertCircle, RefreshCw, History, Database } from "lucide-react";
+import { ArrowLeft, Plus, Eye, Save, AlertCircle, RefreshCw, History, Database, Info } from "lucide-react";
 import { SchemaField } from "./SchemaFieldEditor";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -17,6 +17,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
+import { FieldTypeReference } from "./FieldTypeReference";
 
 interface SchemaChange {
   type: 'add' | 'modify' | 'delete' | 'rename';
@@ -1425,6 +1426,21 @@ export function TableSchemaEditor() {
             </p>
           </div>
         </div>
+      </div>
+
+      {/* Help Section */}
+      <Alert className="mb-6 bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-900">
+        <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+        <AlertDescription className="text-sm text-blue-800 dark:text-blue-300">
+          <strong>Editing Table Schema:</strong> Field types define the PostgreSQL column type in the database. 
+          Array types store multiple values in a single column. Use Integer for whole numbers, Number for decimals, and UUID for unique identifiers.
+          Expand the Field Type Reference below for detailed information on each type.
+        </AlertDescription>
+      </Alert>
+
+      {/* Field Type Reference */}
+      <div className="mb-6">
+        <FieldTypeReference />
       </div>
 
       {changes.length > 0 && (
