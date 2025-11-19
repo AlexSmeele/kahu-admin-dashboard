@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, ChevronUp, ChevronDown } from "lucide-react";
+import { ChevronUp, ChevronDown, AlertCircle } from "lucide-react";
+import { validateSQLIdentifier } from "@/lib/validators";
 import { ColumnGroup } from "./ColumnGroupManager";
 
 export interface CSVColumn {
@@ -27,206 +27,175 @@ export interface ColumnMapping {
 
 interface CSVColumnMapperProps {
   columns: CSVColumn[];
-  targetFields?: { name: string; type: string; label: string }[];
+  existingFields?: string[];
   mappings: ColumnMapping[];
   onMappingChange: (mappings: ColumnMapping[]) => void;
   mode: 'create' | 'import';
-  groupedColumns?: Set<string>;
   columnGroups?: ColumnGroup[];
 }
 
-const dataTypes = [
-  { value: 'text', label: 'Text' },
-  { value: 'number', label: 'Number' },
-  { value: 'boolean', label: 'Boolean' },
-  { value: 'date', label: 'Date' },
-  { value: 'datetime', label: 'Date & Time' },
-  { value: 'json', label: 'JSON' },
-  { value: 'uuid', label: 'UUID' },
-];
+export const CSVColumnMapper = ({ columns, existingFields, mappings, onMappingChange, mode, columnGroups = [] }: CSVColumnMapperProps) => {
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+  const groupedColumnsSet = new Set(columnGroups.flatMap(g => g.sourceColumns));
 
-export function CSVColumnMapper({
-  columns,
-  targetFields = [],
-  mappings,
-  onMappingChange,
-  mode,
-  groupedColumns = new Set(),
-  columnGroups = [],
-}: CSVColumnMapperProps) {
   const updateMapping = (csvColumn: string, updates: Partial<ColumnMapping>) => {
-    const newMappings = mappings.map((m) =>
-      m.csvColumn === csvColumn ? { ...m, ...updates } : m
-    );
+    const newMappings = mappings.map(m => m.csvColumn === csvColumn ? { ...m, ...updates } : m);
+    if (updates.targetField) {
+      const validation = validateSQLIdentifier(updates.targetField);
+      if (!validation.valid) {
+        setValidationErrors(prev => ({ ...prev, [csvColumn]: validation.error || '' }));
+      } else {
+        setValidationErrors(prev => { const newErrors = { ...prev }; delete newErrors[csvColumn]; return newErrors; });
+      }
+    }
     onMappingChange(newMappings);
   };
 
-  const reorderMapping = (csvColumn: string, direction: 'up' | 'down') => {
-    const currentIndex = mappings.findIndex(m => m.csvColumn === csvColumn);
-    if (currentIndex === -1) return;
-    
-    const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
-    if (newIndex < 0 || newIndex >= mappings.length) return;
-    
-    const newMappings = [...mappings];
-    [newMappings[currentIndex], newMappings[newIndex]] = 
-      [newMappings[newIndex], newMappings[currentIndex]];
-    
-    onMappingChange(newMappings);
+  const reorderMapping = (identifier: string, direction: 'up' | 'down') => {
+    const group = columnGroups.find(g => g.targetField === identifier);
+    if (group) {
+      const firstColumnInGroup = group.sourceColumns[0];
+      const currentIndex = mappings.findIndex(m => m.csvColumn === firstColumnInGroup);
+      if (currentIndex === -1) return;
+      const groupSize = group.sourceColumns.length;
+      const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + groupSize;
+      if (newIndex < 0 || (direction === 'down' && newIndex > mappings.length)) return;
+      const groupMappings = mappings.slice(currentIndex, currentIndex + groupSize);
+      const otherMappings = mappings.filter((_, idx) => idx < currentIndex || idx >= currentIndex + groupSize);
+      const insertIndex = direction === 'up' ? newIndex : newIndex - groupSize + 1;
+      const newMappings = [...otherMappings.slice(0, insertIndex), ...groupMappings, ...otherMappings.slice(insertIndex)];
+      onMappingChange(newMappings);
+    } else {
+      const currentIndex = mappings.findIndex(m => m.csvColumn === identifier);
+      if (currentIndex === -1 || groupedColumnsSet.has(identifier)) return;
+      const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+      if (newIndex < 0 || newIndex >= mappings.length) return;
+      const newMappings = [...mappings];
+      [newMappings[currentIndex], newMappings[newIndex]] = [newMappings[newIndex], newMappings[currentIndex]];
+      onMappingChange(newMappings);
+    }
   };
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Column Mapping</CardTitle>
-        <CardDescription>
-          {mode === 'create'
-            ? 'Map CSV columns to new table fields and set data types'
-            : 'Map CSV columns to existing table fields'}
-        </CardDescription>
+        <CardDescription>Map CSV columns to table fields. Grouped columns will form arrays.</CardDescription>
       </CardHeader>
       <CardContent>
-        <ScrollArea className="h-[500px]">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[80px]">Order</TableHead>
-                <TableHead className="w-[200px]">CSV Column</TableHead>
-                <TableHead className="w-[150px]">Detected Type</TableHead>
-                <TableHead className="w-[50px]"></TableHead>
-                <TableHead className="w-[200px]">
-                  {mode === 'create' ? 'Field Name' : 'Target Field'}
-                </TableHead>
-                <TableHead className="w-[150px]">Data Type</TableHead>
-                <TableHead>Sample Values</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {mappings.map((mapping, mappingIndex) => {
-                const column = columns.find(c => c.name === mapping.csvColumn);
-                if (!column) return null;
-                
-                const isGrouped = groupedColumns.has(column.name);
-                const columnGroup = columnGroups.find(g => g.sourceColumns.includes(column.name));
-                
-                return (
-                  <TableRow 
-                    key={column.name} 
-                    className={isGrouped ? "bg-blue-50/50 dark:bg-blue-950/20 opacity-80" : ""}
-                  >
-                    <TableCell>
-                      <div className="flex flex-col gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 w-6 p-0"
-                          onClick={() => reorderMapping(column.name, 'up')}
-                          disabled={mappingIndex === 0 || isGrouped}
-                        >
-                          <ChevronUp className="h-3 w-3" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 w-6 p-0"
-                          onClick={() => reorderMapping(column.name, 'down')}
-                          disabled={mappingIndex === mappings.length - 1 || isGrouped}
-                        >
-                          <ChevronDown className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      <div className="flex flex-col gap-1">
-                        {column.name}
-                        {isGrouped && columnGroup && (
-                          <div className="flex gap-2 flex-wrap">
-                            <Badge variant="secondary" className="text-xs">
-                              Grouped
-                            </Badge>
-                            <Badge variant="outline" className="text-xs">
-                              → {columnGroup.targetField}
-                            </Badge>
-                          </div>
+        <div className="text-sm text-muted-foreground mb-4">Field names: lowercase, numbers, underscores only. Cannot start with number.</div>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[80px]">Order</TableHead>
+              <TableHead>CSV Column / Target Field</TableHead>
+              <TableHead>Type</TableHead>
+              <TableHead className="w-[200px]">Configuration</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {(() => {
+              const renderedItems: React.ReactNode[] = [];
+              const processedColumns = new Set<string>();
+              mappings.forEach((mapping, mappingIndex) => {
+                if (processedColumns.has(mapping.csvColumn)) return;
+                const group = columnGroups.find(g => g.targetField === mapping.targetField);
+                const isGrouped = groupedColumnsSet.has(mapping.csvColumn);
+                if (group && group.sourceColumns[0] === mapping.csvColumn) {
+                  const groupIndex = mappings.findIndex(m => m.csvColumn === group.sourceColumns[0]);
+                  const canMoveUp = groupIndex > 0;
+                  const canMoveDown = groupIndex + group.sourceColumns.length < mappings.length;
+                  renderedItems.push(
+                    <TableRow key={`group-${group.targetField}`} className="bg-blue-50/50 dark:bg-blue-950/20 font-medium">
+                      <TableCell>
+                        <div className="flex flex-col gap-1">
+                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => reorderMapping(group.targetField, 'up')} disabled={!canMoveUp}><ChevronUp className="h-3 w-3" /></Button>
+                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => reorderMapping(group.targetField, 'down')} disabled={!canMoveDown}><ChevronDown className="h-3 w-3" /></Button>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          {mode === 'create' ? (
+                            <div className="flex-1">
+                              <Input value={group.targetField} onChange={(e) => { group.sourceColumns.forEach(col => updateMapping(col, { targetField: e.target.value })); }} placeholder="Target field name" className={validationErrors[mapping.csvColumn] ? "border-destructive" : ""} />
+                              {validationErrors[mapping.csvColumn] && <div className="flex items-center gap-1 text-xs text-destructive mt-1"><AlertCircle className="h-3 w-3" />{validationErrors[mapping.csvColumn]}</div>}
+                            </div>
+                          ) : <span>{group.targetField}</span>}
+                          <Badge variant="secondary" className="text-xs">Grouped ({group.sourceColumns.length})</Badge>
+                        </div>
+                      </TableCell>
+                      <TableCell><Badge variant="outline">json</Badge></TableCell>
+                      <TableCell><span className="text-xs text-muted-foreground">Array field</span></TableCell>
+                    </TableRow>
+                  );
+                  group.sourceColumns.forEach((colName) => {
+                    processedColumns.add(colName);
+                    const column = columns.find(c => c.name === colName);
+                    if (!column) return;
+                    renderedItems.push(
+                      <TableRow key={`child-${colName}`} className="bg-muted/30">
+                        <TableCell></TableCell>
+                        <TableCell className="pl-8"><div className="flex items-center gap-2"><span className="text-muted-foreground">↳</span><span className="text-sm">{column.name}</span></div></TableCell>
+                        <TableCell><Badge variant="outline" className="text-xs">{column.detectedType}</Badge></TableCell>
+                        <TableCell><span className="text-xs text-muted-foreground">Element {group.sourceColumns.indexOf(colName) + 1}</span></TableCell>
+                      </TableRow>
+                    );
+                  });
+                } else if (!isGrouped) {
+                  const column = columns.find(c => c.name === mapping.csvColumn);
+                  if (!column) return;
+                  const canMoveUp = mappingIndex > 0;
+                  const canMoveDown = mappingIndex < mappings.length - 1;
+                  renderedItems.push(
+                    <TableRow key={column.name}>
+                      <TableCell>
+                        <div className="flex flex-col gap-1">
+                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => reorderMapping(column.name, 'up')} disabled={!canMoveUp}><ChevronUp className="h-3 w-3" /></Button>
+                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => reorderMapping(column.name, 'down')} disabled={!canMoveDown}><ChevronDown className="h-3 w-3" /></Button>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2"><span className="text-sm text-muted-foreground">{column.name}</span><span className="text-muted-foreground">→</span></div>
+                          {mode === 'create' ? (
+                            <div>
+                              <Input value={mapping.targetField} onChange={(e) => updateMapping(column.name, { targetField: e.target.value })} placeholder="Target field name" className={validationErrors[column.name] ? "border-destructive" : ""} />
+                              {validationErrors[column.name] && <div className="flex items-center gap-1 text-xs text-destructive mt-1"><AlertCircle className="h-3 w-3" />{validationErrors[column.name]}</div>}
+                            </div>
+                          ) : (
+                            <Select value={mapping.targetField || ''} onValueChange={(value) => updateMapping(column.name, { targetField: value })}>
+                              <SelectTrigger><SelectValue placeholder="Select target field" /></SelectTrigger>
+                              <SelectContent>{existingFields?.map(field => <SelectItem key={field} value={field}>{field}</SelectItem>)}</SelectContent>
+                            </Select>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell><Badge variant="outline" className="text-xs">{column.detectedType}</Badge></TableCell>
+                      <TableCell>
+                        {mode === 'create' && (
+                          <Select value={mapping.dataType} onValueChange={(value) => updateMapping(column.name, { dataType: value })}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="text">Text</SelectItem>
+                              <SelectItem value="integer">Integer</SelectItem>
+                              <SelectItem value="numeric">Numeric</SelectItem>
+                              <SelectItem value="boolean">Boolean</SelectItem>
+                              <SelectItem value="date">Date</SelectItem>
+                              <SelectItem value="timestamp">Timestamp</SelectItem>
+                              <SelectItem value="json">JSON</SelectItem>
+                            </SelectContent>
+                          </Select>
                         )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{column.detectedType}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <ArrowRight className="h-4 w-4 text-muted-foreground" />
-                    </TableCell>
-                    <TableCell>
-                      {mode === 'create' ? (
-                        <input
-                          type="text"
-                          value={mapping?.targetField || column.name.toLowerCase().replace(/\s+/g, '_')}
-                          onChange={(e) =>
-                            updateMapping(column.name, { targetField: e.target.value })
-                          }
-                          className="w-full px-2 py-1 border rounded text-sm"
-                          placeholder="field_name"
-                          disabled={isGrouped}
-                        />
-                      ) : (
-                        <Select
-                          value={mapping?.targetField || ''}
-                          onValueChange={(value) =>
-                            updateMapping(column.name, { targetField: value })
-                          }
-                          disabled={isGrouped}
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select field..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="">Skip column</SelectItem>
-                            {targetFields.map((field) => (
-                              <SelectItem key={field.name} value={field.name}>
-                                {field.label} ({field.type})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Select
-                        value={mapping?.dataType || column.detectedType}
-                        onValueChange={(value) =>
-                          updateMapping(column.name, { dataType: value })
-                        }
-                        disabled={isGrouped}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {dataTypes.map((type) => (
-                            <SelectItem key={type.value} value={type.value}>
-                              {type.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex flex-wrap gap-1">
-                        {column.sampleValues.slice(0, 3).map((value, idx) => (
-                          <Badge key={idx} variant="secondary" className="text-xs">
-                            {value.length > 20 ? value.substring(0, 20) + '...' : value}
-                          </Badge>
-                        ))}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </ScrollArea>
+                      </TableCell>
+                    </TableRow>
+                  );
+                }
+              });
+              return renderedItems;
+            })()}
+          </TableBody>
+        </Table>
       </CardContent>
     </Card>
   );
-}
+};
