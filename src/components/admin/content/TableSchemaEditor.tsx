@@ -103,7 +103,22 @@ export function TableSchemaEditor() {
       if (error) throw error;
 
       setTableData(data);
-      const schemaFields = (data.schema_definition as any) || [];
+      
+      // Validate schema_definition is an array
+      const rawSchema = data.schema_definition as any;
+      let schemaFields: SchemaField[] = [];
+
+      if (Array.isArray(rawSchema)) {
+        schemaFields = rawSchema;
+      } else if (rawSchema && typeof rawSchema === 'object') {
+        // Invalid format (CSV import object or corrupted)
+        console.warn('Invalid schema_definition format detected (expected array, got object):', rawSchema);
+        toast.warning("Invalid schema format detected. Please use 'Refresh from Database' to fix.");
+        schemaFields = [];
+      } else {
+        schemaFields = [];
+      }
+
       setFields(schemaFields);
       setOriginalFields(JSON.parse(JSON.stringify(schemaFields)));
       
@@ -1424,6 +1439,25 @@ export function TableSchemaEditor() {
             <p className="text-muted-foreground mt-1">
               {tableData.display_name} ({tableData.table_name})
             </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={syncFromDatabase}
+              disabled={syncing}
+              variant="outline"
+              size="sm"
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+              Refresh from Database
+            </Button>
+            <Button onClick={handlePreviewSQL} variant="outline" size="sm">
+              <Eye className="h-4 w-4 mr-2" />
+              Preview SQL
+            </Button>
+            <Button onClick={() => setShowHistoryDialog(true)} variant="outline" size="sm">
+              <History className="h-4 w-4 mr-2" />
+              History
+            </Button>
           </div>
         </div>
       </div>
