@@ -48,6 +48,12 @@ export default function SectionDetail() {
   }, [sectionId]);
 
   const fetchSectionAndTables = async () => {
+    // Skip fetching if creating a new section
+    if (sectionId === 'new') {
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
 
