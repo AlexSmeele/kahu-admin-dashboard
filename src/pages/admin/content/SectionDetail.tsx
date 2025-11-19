@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Table as TableIcon, Upload, Plus, Edit, Trash2, ArrowUpDown } from "lucide-react";
+import { ArrowLeft, Table as TableIcon, Upload, Plus, Edit, Trash2, ArrowUpDown, RefreshCw, CheckCircle, AlertTriangle, MoreVertical, Database } from "lucide-react";
 import { IconPicker } from "@/components/admin/content/IconPicker";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +22,13 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { TableReorderDialog } from "@/components/admin/content/TableReorderDialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export default function SectionDetail() {
   const { sectionId } = useParams();
@@ -34,6 +41,7 @@ export default function SectionDetail() {
   const [firstDeleteDialogOpen, setFirstDeleteDialogOpen] = useState(false);
   const [secondDeleteDialogOpen, setSecondDeleteDialogOpen] = useState(false);
   const [reorderDialogOpen, setReorderDialogOpen] = useState(false);
+  const [resettingConnection, setResettingConnection] = useState<string | null>(null);
 
   useEffect(() => {
     fetchSectionAndTables();
@@ -125,6 +133,125 @@ export default function SectionDetail() {
     } finally {
       setSecondDeleteDialogOpen(false);
     }
+  };
+
+  const handleResetConnection = async (tableId: string) => {
+    const table = tables.find(t => t.id === tableId);
+    if (!table) return;
+
+    setResettingConnection(tableId);
+    try {
+      // Call introspect-schema to get fresh database schema
+      const { data: introspectData, error: introspectError } = await supabase.functions.invoke('introspect-schema', {
+        body: { tableName: table.table_name }
+      });
+
+      if (introspectError) throw introspectError;
+      if (!introspectData?.columns) throw new Error("No columns returned from introspection");
+
+      // Map database columns to schema fields
+      const schemaFields = introspectData.columns.map((col: any, index: number) => ({
+        id: crypto.randomUUID(),
+        name: col.column_name,
+        label: col.column_name.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
+        type: mapPostgreSQLType(col.data_type),
+        nullable: col.is_nullable === 'YES',
+        required: col.is_nullable === 'NO',
+        unique: false,
+        defaultValue: col.column_default || '',
+        description: '',
+        order: index,
+      }));
+
+      // Update schema_definition
+      const { error: updateError } = await supabase
+        .from('admin_content_tables')
+        .update({ schema_definition: schemaFields as any })
+        .eq('id', tableId);
+
+      if (updateError) throw updateError;
+
+      toast.success(`Connection reset successfully for "${table.display_name}"`, {
+        description: `Synced ${schemaFields.length} columns from database.`
+      });
+
+      // Refresh the tables list
+      await fetchSectionAndTables();
+    } catch (error: any) {
+      console.error("Error resetting connection:", error);
+      toast.error("Failed to reset connection", {
+        description: error.message
+      });
+    } finally {
+      setResettingConnection(null);
+    }
+  };
+
+  const handleDeleteConnection = async (tableId: string) => {
+    const table = tables.find(t => t.id === tableId);
+    if (!table) return;
+
+    const confirmed = window.confirm(
+      `Are you sure you want to delete the connection to "${table.display_name}"?\n\n` +
+      `This will remove the table from the Content Manager but will NOT delete the actual database table "${table.table_name}".`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      const { error } = await supabase
+        .from('admin_content_tables')
+        .delete()
+        .eq('id', tableId);
+
+      if (error) throw error;
+
+      toast.success(`Connection deleted for "${table.display_name}"`, {
+        description: "The database table remains intact."
+      });
+
+      // Refresh the tables list
+      await fetchSectionAndTables();
+    } catch (error: any) {
+      console.error("Error deleting connection:", error);
+      toast.error("Failed to delete connection", {
+        description: error.message
+      });
+    }
+  };
+
+  const mapPostgreSQLType = (pgType: string): string => {
+    const typeMap: Record<string, string> = {
+      'text': 'text',
+      'character varying': 'text',
+      'varchar': 'text',
+      'integer': 'integer',
+      'bigint': 'bigint',
+      'numeric': 'number',
+      'real': 'number',
+      'double precision': 'number',
+      'boolean': 'boolean',
+      'date': 'date',
+      'timestamp with time zone': 'datetime',
+      'timestamp without time zone': 'datetime',
+      'time': 'time',
+      'uuid': 'uuid',
+      'jsonb': 'json',
+      'json': 'json',
+      'text[]': 'text_array',
+      'integer[]': 'integer_array',
+      'uuid[]': 'uuid_array',
+      'jsonb[]': 'jsonb_array',
+    };
+    return typeMap[pgType.toLowerCase()] || 'text';
+  };
+
+  const getSchemaStatus = (table: any) => {
+    const schema = table.schema_definition;
+    if (Array.isArray(schema) && schema.length > 0) {
+      return { valid: true, label: 'Connected', variant: 'default' as const };
+    }
+    return { valid: false, label: 'Invalid Schema', variant: 'destructive' as const };
   };
 
   if (loading) return <div className="p-8">Loading...</div>;
@@ -300,12 +427,30 @@ export default function SectionDetail() {
                           </div>
                         </div>
                       </div>
-                      <Badge 
-                        variant={table.is_active ? "default" : "secondary"} 
-                        className="shrink-0 shadow-sm"
-                      >
-                        {table.is_active ? "Active" : "Inactive"}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        {(() => {
+                          const status = getSchemaStatus(table);
+                          return (
+                            <Badge 
+                              variant={status.variant}
+                              className="shrink-0 shadow-sm"
+                            >
+                              {status.valid ? (
+                                <CheckCircle className="h-3 w-3 mr-1" />
+                              ) : (
+                                <AlertTriangle className="h-3 w-3 mr-1" />
+                              )}
+                              {status.label}
+                            </Badge>
+                          );
+                        })()}
+                        <Badge 
+                          variant={table.is_active ? "default" : "secondary"} 
+                          className="shrink-0 shadow-sm"
+                        >
+                          {table.is_active ? "Active" : "Inactive"}
+                        </Badge>
+                      </div>
                     </div>
                     {table.description && (
                       <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">
@@ -339,10 +484,10 @@ export default function SectionDetail() {
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="flex flex-col gap-2 pt-2">
+                    <div className="flex gap-2 pt-2">
                       <Button 
                         size="default" 
-                        className="w-full shadow-sm"
+                        className="flex-1 shadow-sm"
                         onClick={() => navigate(`/admin/content/sections/${sectionId}/tables/${table.id}/records`)}
                       >
                         <TableIcon className="h-4 w-4 mr-2" />
@@ -351,12 +496,37 @@ export default function SectionDetail() {
                       <Button 
                         size="default" 
                         variant="outline" 
-                        className="w-full"
+                        className="flex-1"
                         onClick={() => navigate(`/admin/content/sections/${sectionId}/tables/${table.id}/edit`)}
                       >
                         <Edit className="h-4 w-4 mr-2" />
                         Edit Schema
                       </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem 
+                            onClick={() => handleResetConnection(table.id)}
+                            disabled={resettingConnection === table.id}
+                            className="text-yellow-600 dark:text-yellow-400"
+                          >
+                            <RefreshCw className={`h-4 w-4 mr-2 ${resettingConnection === table.id ? 'animate-spin' : ''}`} />
+                            Reset Connection
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem 
+                            onClick={() => handleDeleteConnection(table.id)}
+                            className="text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete Connection
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </CardContent>
                 </Card>
