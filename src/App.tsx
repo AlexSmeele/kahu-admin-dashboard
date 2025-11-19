@@ -27,6 +27,8 @@ const AdminInvites = lazy(() => import("./pages/admin/Invites"));
 const AdminSystem = lazy(() => import("./pages/admin/System"));
 const AdminSections = lazy(() => import("./pages/admin/content/Sections"));
 const AdminSectionDetail = lazy(() => import("./pages/admin/content/SectionDetail"));
+const AdminContentTables = lazy(() => import("./pages/admin/content/ContentTables"));
+const AdminTableSchemaBuilder = lazy(() => import("./pages/admin/content/TableSchemaBuilder"));
 
 const queryClient = new QueryClient();
 
@@ -60,6 +62,8 @@ const App = () => (
               <Route path="system" element={<AdminSystem />} />
               <Route path="content/sections" element={<AdminSections />} />
               <Route path="content/sections/:id" element={<AdminSectionDetail />} />
+              <Route path="content/sections/:sectionId/tables" element={<AdminContentTables />} />
+              <Route path="content/sections/:sectionId/tables/:tableId" element={<AdminTableSchemaBuilder />} />
             </Route>
 
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
