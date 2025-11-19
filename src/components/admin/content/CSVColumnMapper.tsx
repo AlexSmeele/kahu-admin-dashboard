@@ -5,7 +5,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ArrowRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ArrowRight, ChevronUp, ChevronDown } from "lucide-react";
+import { ColumnGroup } from "./ColumnGroupManager";
 
 export interface CSVColumn {
   name: string;
@@ -30,6 +32,7 @@ interface CSVColumnMapperProps {
   onMappingChange: (mappings: ColumnMapping[]) => void;
   mode: 'create' | 'import';
   groupedColumns?: Set<string>;
+  columnGroups?: ColumnGroup[];
 }
 
 const dataTypes = [
@@ -49,11 +52,26 @@ export function CSVColumnMapper({
   onMappingChange,
   mode,
   groupedColumns = new Set(),
+  columnGroups = [],
 }: CSVColumnMapperProps) {
   const updateMapping = (csvColumn: string, updates: Partial<ColumnMapping>) => {
     const newMappings = mappings.map((m) =>
       m.csvColumn === csvColumn ? { ...m, ...updates } : m
     );
+    onMappingChange(newMappings);
+  };
+
+  const reorderMapping = (csvColumn: string, direction: 'up' | 'down') => {
+    const currentIndex = mappings.findIndex(m => m.csvColumn === csvColumn);
+    if (currentIndex === -1) return;
+    
+    const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    if (newIndex < 0 || newIndex >= mappings.length) return;
+    
+    const newMappings = [...mappings];
+    [newMappings[currentIndex], newMappings[newIndex]] = 
+      [newMappings[newIndex], newMappings[currentIndex]];
+    
     onMappingChange(newMappings);
   };
 
@@ -72,6 +90,7 @@ export function CSVColumnMapper({
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-[80px]">Order</TableHead>
                 <TableHead className="w-[200px]">CSV Column</TableHead>
                 <TableHead className="w-[150px]">Detected Type</TableHead>
                 <TableHead className="w-[50px]"></TableHead>
@@ -83,18 +102,54 @@ export function CSVColumnMapper({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {columns.map((column) => {
-                const mapping = mappings.find((m) => m.csvColumn === column.name);
+              {mappings.map((mapping, mappingIndex) => {
+                const column = columns.find(c => c.name === mapping.csvColumn);
+                if (!column) return null;
+                
                 const isGrouped = groupedColumns.has(column.name);
+                const columnGroup = columnGroups.find(g => g.sourceColumns.includes(column.name));
+                
                 return (
-                  <TableRow key={column.name} className={isGrouped ? "opacity-50" : ""}>
+                  <TableRow 
+                    key={column.name} 
+                    className={isGrouped ? "bg-blue-50/50 dark:bg-blue-950/20 opacity-80" : ""}
+                  >
+                    <TableCell>
+                      <div className="flex flex-col gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0"
+                          onClick={() => reorderMapping(column.name, 'up')}
+                          disabled={mappingIndex === 0 || isGrouped}
+                        >
+                          <ChevronUp className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0"
+                          onClick={() => reorderMapping(column.name, 'down')}
+                          disabled={mappingIndex === mappings.length - 1 || isGrouped}
+                        >
+                          <ChevronDown className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </TableCell>
                     <TableCell className="font-medium">
-                      {column.name}
-                      {isGrouped && (
-                        <Badge variant="secondary" className="ml-2 text-xs">
-                          Grouped
-                        </Badge>
-                      )}
+                      <div className="flex flex-col gap-1">
+                        {column.name}
+                        {isGrouped && columnGroup && (
+                          <div className="flex gap-2 flex-wrap">
+                            <Badge variant="secondary" className="text-xs">
+                              Grouped
+                            </Badge>
+                            <Badge variant="outline" className="text-xs">
+                              → {columnGroup.targetField}
+                            </Badge>
+                          </div>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline">{column.detectedType}</Badge>
