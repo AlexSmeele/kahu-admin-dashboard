@@ -430,30 +430,6 @@ export default function SectionDetail() {
                           </div>
                         </div>
                       </div>
-                      <div className="flex items-start gap-2 flex-wrap">
-                        {(() => {
-                          const status = getSchemaStatus(table);
-                          return (
-                            <Badge 
-                              variant={status.variant}
-                              className="shrink-0 shadow-sm whitespace-nowrap"
-                            >
-                              {status.valid ? (
-                                <CheckCircle className="h-3 w-3 mr-1" />
-                              ) : (
-                                <AlertTriangle className="h-3 w-3 mr-1" />
-                              )}
-                              {status.label}
-                            </Badge>
-                          );
-                        })()}
-                        <Badge 
-                          variant={table.is_active ? "default" : "secondary"} 
-                          className="shrink-0 shadow-sm whitespace-nowrap"
-                        >
-                          {table.is_active ? "Active" : "Inactive"}
-                        </Badge>
-                      </div>
                     </div>
                     {table.description && (
                       <p 
@@ -493,6 +469,32 @@ export default function SectionDetail() {
                           <span className="text-xs text-muted-foreground">fields</span>
                         </div>
                       </div>
+                    </div>
+
+                    {/* Status Badges */}
+                    <div className="flex items-center gap-2 pt-2 border-t">
+                      {(() => {
+                        const status = getSchemaStatus(table);
+                        return (
+                          <Badge 
+                            variant={status.variant}
+                            className="shrink-0 shadow-sm whitespace-nowrap"
+                          >
+                            {status.valid ? (
+                              <CheckCircle className="h-3 w-3 mr-1" />
+                            ) : (
+                              <AlertTriangle className="h-3 w-3 mr-1" />
+                            )}
+                            {status.label}
+                          </Badge>
+                        );
+                      })()}
+                      <Badge 
+                        variant={table.is_active ? "default" : "secondary"} 
+                        className="shrink-0 shadow-sm whitespace-nowrap"
+                      >
+                        {table.is_active ? "Active" : "Inactive"}
+                      </Badge>
                     </div>
 
                     {/* Action Buttons */}
