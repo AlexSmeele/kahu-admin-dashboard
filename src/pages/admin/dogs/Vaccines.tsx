@@ -1,56 +1,132 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Plus, AlertCircle } from "lucide-react";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { UnifiedDataViewer, Column } from "@/components/admin/UnifiedDataViewer";
+import { toast } from "sonner";
+
+interface Vaccine {
+  id: string;
+  name: string;
+  vaccine_type: string;
+  protects_against: string;
+  schedule_info: string;
+  puppy_start_weeks: number | null;
+  frequency_months: number | null;
+  booster_required: boolean;
+  lifestyle_factors: string[] | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
 
 export default function AdminVaccines() {
+  const [vaccines, setVaccines] = useState<Vaccine[]>([]);
+  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+
+  const fetchVaccines = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("vaccines")
+        .select("*")
+        .order("name", { ascending: true });
+
+      if (error) throw error;
+      setVaccines(data || []);
+    } catch (error) {
+      console.error("Error fetching vaccines:", error);
+      toast.error("Failed to load vaccines");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchVaccines();
+  }, []);
+
+  const columns: Column<Vaccine>[] = [
+    {
+      key: "name",
+      label: "Vaccine Name",
+      sortable: true,
+      filterable: true,
+    },
+    {
+      key: "vaccine_type",
+      label: "Type",
+      sortable: true,
+      filterable: true,
+      render: (value) => (
+        <span className="capitalize">{value}</span>
+      ),
+    },
+    {
+      key: "protects_against",
+      label: "Protects Against",
+      sortable: true,
+    },
+    {
+      key: "puppy_start_weeks",
+      label: "Start Age (weeks)",
+      sortable: true,
+      render: (value) => value ? `${value} weeks` : "N/A",
+    },
+    {
+      key: "frequency_months",
+      label: "Frequency",
+      sortable: true,
+      render: (value) => value ? `Every ${value} months` : "N/A",
+    },
+    {
+      key: "booster_required",
+      label: "Booster Required",
+      sortable: true,
+      render: (value) => value ? "Yes" : "No",
+    },
+  ];
+
+  const handleAdd = () => {
+    toast.info("Add vaccine functionality coming soon");
+  };
+
+  const handleBulkDelete = async (records: Vaccine[]) => {
+    const ids = records.map(r => r.id);
+    try {
+      const { error } = await supabase
+        .from("vaccines")
+        .delete()
+        .in("id", ids);
+
+      if (error) throw error;
+      toast.success(`Deleted ${ids.length} vaccine(s)`);
+      fetchVaccines();
+    } catch (error) {
+      console.error("Error deleting vaccines:", error);
+      toast.error("Failed to delete vaccines");
+    }
+  };
+
   return (
     <div className="p-4 md:p-8">
-      <div className="mb-6 flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold">Vaccines</h1>
-            <p className="text-sm md:text-base text-muted-foreground">Manage vaccine information and schedules</p>
-          </div>
-          <Button disabled>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Vaccine
-          </Button>
-        </div>
-
-        <Alert>
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Coming Soon</AlertTitle>
-          <AlertDescription>
-            The Vaccine management system is under development. Once implemented, you'll be able to manage vaccine information using the unified table viewer.
-          </AlertDescription>
-        </Alert>
+      <div className="mb-6">
+        <h1 className="text-2xl md:text-3xl font-bold">Vaccines</h1>
+        <p className="text-sm md:text-base text-muted-foreground">
+          Manage vaccine information and schedules
+        </p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Vaccine Database</CardTitle>
-          <CardDescription>Core and non-core vaccines for dogs</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="text-sm text-muted-foreground space-y-4">
-            <p>The vaccine management interface will include:</p>
-            <ul className="list-disc list-inside space-y-2">
-              <li>Vaccine names and categories (core/non-core)</li>
-              <li>Pathogens covered by each vaccine</li>
-              <li>Recommended schedule (puppy series, adult boosters)</li>
-              <li>Regional variations (NZ, AU, US, UK)</li>
-              <li>Detailed explanations and veterinary notes</li>
-              <li>Status management (active/discontinued)</li>
-              <li>Side effects and contraindications</li>
-              <li>Manufacturer information</li>
-            </ul>
-            <p className="pt-4 text-xs text-muted-foreground italic">
-              To implement: Create a 'vaccines' table in the database and integrate with the UnifiedDataViewer component.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+      <UnifiedDataViewer
+        data={vaccines}
+        columns={columns}
+        loading={loading}
+        onAdd={handleAdd}
+        onRefresh={fetchVaccines}
+        onBulkDelete={handleBulkDelete}
+        title="Vaccine Database"
+        description="Core and lifestyle vaccines for dogs"
+      />
     </div>
   );
 }
