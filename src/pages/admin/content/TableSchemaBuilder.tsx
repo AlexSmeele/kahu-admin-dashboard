@@ -122,12 +122,17 @@ export default function TableSchemaBuilder() {
     const fields = formData.schema_definition.map(field => {
       let sqlType = 'TEXT';
       switch (field.type) {
+        case 'integer': sqlType = 'INTEGER'; break;
         case 'number': sqlType = 'NUMERIC'; break;
+        case 'bigint': sqlType = 'BIGINT'; break;
         case 'boolean': sqlType = 'BOOLEAN'; break;
         case 'date': sqlType = 'DATE'; break;
         case 'datetime': sqlType = 'TIMESTAMP WITH TIME ZONE'; break;
         case 'json': sqlType = 'JSONB'; break;
-        case 'array': sqlType = 'TEXT[]'; break;
+        case 'text_array': sqlType = 'TEXT[]'; break;
+        case 'integer_array': sqlType = 'INTEGER[]'; break;
+        case 'uuid_array': sqlType = 'UUID[]'; break;
+        case 'jsonb_array': sqlType = 'JSONB[]'; break;
         case 'uuid': sqlType = 'UUID'; break;
       }
       

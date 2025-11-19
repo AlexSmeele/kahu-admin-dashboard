@@ -113,47 +113,81 @@ export function DynamicForm({ fields, data, onChange, errors = {} }: DynamicForm
           </Popover>
         );
 
-      case 'select':
+      // Handle dropdown and multiselect via uiWidget
+      case 'text':
+      case 'integer':
+      case 'number':
+      case 'bigint':
+        if (field.uiWidget === 'dropdown') {
+          return (
+            <Select value={value || ''} onValueChange={(v) => onChange(field.name, v)}>
+              <SelectTrigger>
+                <SelectValue placeholder={`Select ${field.label}`} />
+              </SelectTrigger>
+              <SelectContent>
+                {field.nullable && <SelectItem value="">None</SelectItem>}
+                {field.validation?.options?.map((option) => (
+                  <SelectItem key={option} value={option}>
+                    {option}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          );
+        }
         return (
-          <Select value={value || ''} onValueChange={(v) => onChange(field.name, v)}>
-            <SelectTrigger>
-              <SelectValue placeholder={`Select ${field.label}`} />
-            </SelectTrigger>
-            <SelectContent>
-              {field.nullable && <SelectItem value="">None</SelectItem>}
-              {field.validation?.options?.map((option) => (
-                <SelectItem key={option} value={option}>
-                  {option}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Input
+            {...commonProps}
+            type={field.type === 'integer' || field.type === 'bigint' || field.type === 'number' ? 'number' : 'text'}
+            value={value || ''}
+            onChange={(e) => onChange(field.name, e.target.value)}
+            placeholder={field.description || `Enter ${field.label}`}
+          />
         );
 
-      case 'multiselect':
-        const selectedValues = Array.isArray(value) ? value : [];
+      case 'text_array':
+      case 'integer_array':
+      case 'uuid_array':
+      case 'jsonb_array':
+        if (field.uiWidget === 'multiselect') {
+          const selectedValues = Array.isArray(value) ? value : [];
+          return (
+            <div className="space-y-2">
+              {field.validation?.options?.map((option) => (
+                <div key={option} className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id={`${fieldId}-${option}`}
+                    checked={selectedValues.includes(option)}
+                    onChange={(e) => {
+                      const newValues = e.target.checked
+                        ? [...selectedValues, option]
+                        : selectedValues.filter((v) => v !== option);
+                      onChange(field.name, newValues);
+                    }}
+                    className="h-4 w-4"
+                  />
+                  <Label htmlFor={`${fieldId}-${option}`} className="cursor-pointer">
+                    {option}
+                  </Label>
+                </div>
+              ))}
+            </div>
+          );
+        }
+        // Default array handling: one value per line
+        const arrayValue = Array.isArray(value) ? value.join('\n') : '';
         return (
-          <div className="space-y-2">
-            {field.validation?.options?.map((option) => (
-              <div key={option} className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  id={`${fieldId}-${option}`}
-                  checked={selectedValues.includes(option)}
-                  onChange={(e) => {
-                    const newValues = e.target.checked
-                      ? [...selectedValues, option]
-                      : selectedValues.filter((v) => v !== option);
-                    onChange(field.name, newValues);
-                  }}
-                  className="h-4 w-4"
-                />
-                <Label htmlFor={`${fieldId}-${option}`} className="cursor-pointer">
-                  {option}
-                </Label>
-              </div>
-            ))}
-          </div>
+          <Textarea
+            {...commonProps}
+            value={arrayValue}
+            onChange={(e) => {
+              const arr = e.target.value.split('\n').filter(line => line.trim());
+              onChange(field.name, arr);
+            }}
+            placeholder={field.description || 'Enter one value per line'}
+            rows={4}
+          />
         );
 
       case 'json':
@@ -172,21 +206,6 @@ export function DynamicForm({ fields, data, onChange, errors = {} }: DynamicForm
             placeholder={field.description || 'Enter valid JSON'}
             rows={6}
             className="font-mono text-sm"
-          />
-        );
-
-      case 'array':
-        const arrayValue = Array.isArray(value) ? value.join('\n') : '';
-        return (
-          <Textarea
-            {...commonProps}
-            value={arrayValue}
-            onChange={(e) => {
-              const arr = e.target.value.split('\n').filter(line => line.trim());
-              onChange(field.name, arr);
-            }}
-            placeholder="One item per line"
-            rows={4}
           />
         );
 

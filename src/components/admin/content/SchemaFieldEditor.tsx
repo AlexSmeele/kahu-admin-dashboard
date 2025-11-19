@@ -12,9 +12,10 @@ export interface SchemaField {
   id: string;
   name: string;
   label: string;
-  type: 'text' | 'number' | 'boolean' | 'date' | 'datetime' | 'json' | 'array' | 'uuid' | 'file_url' | 'select' | 'multiselect';
+  type: 'text' | 'integer' | 'number' | 'bigint' | 'boolean' | 'date' | 'datetime' | 'json' | 'text_array' | 'integer_array' | 'uuid_array' | 'jsonb_array' | 'uuid' | 'file_url';
   nullable: boolean;
   unique: boolean;
+  uiWidget?: 'text_input' | 'textarea' | 'dropdown' | 'multiselect' | 'date_picker' | 'file_upload';
   default_value?: string;
   foreign_key?: {
     table: string;
@@ -40,17 +41,29 @@ interface SchemaFieldEditorProps {
 }
 
 const fieldTypes = [
-  { value: 'text', label: 'Text' },
-  { value: 'number', label: 'Number' },
-  { value: 'boolean', label: 'Boolean' },
-  { value: 'date', label: 'Date' },
-  { value: 'datetime', label: 'Date & Time' },
-  { value: 'json', label: 'JSON' },
-  { value: 'array', label: 'Array' },
-  { value: 'uuid', label: 'UUID' },
-  { value: 'file_url', label: 'File URL' },
-  { value: 'select', label: 'Select (dropdown)' },
+  { value: 'text', label: 'Text (TEXT)' },
+  { value: 'integer', label: 'Integer (INTEGER)' },
+  { value: 'number', label: 'Number (NUMERIC)' },
+  { value: 'bigint', label: 'Big Integer (BIGINT)' },
+  { value: 'boolean', label: 'Boolean (BOOLEAN)' },
+  { value: 'date', label: 'Date (DATE)' },
+  { value: 'datetime', label: 'Date & Time (TIMESTAMP)' },
+  { value: 'uuid', label: 'UUID (UUID)' },
+  { value: 'json', label: 'JSON (JSONB)' },
+  { value: 'text_array', label: 'Text Array (TEXT[])' },
+  { value: 'integer_array', label: 'Integer Array (INTEGER[])' },
+  { value: 'uuid_array', label: 'UUID Array (UUID[])' },
+  { value: 'jsonb_array', label: 'JSONB Array (JSONB[])' },
+  { value: 'file_url', label: 'File URL (TEXT)' },
+];
+
+const uiWidgets = [
+  { value: 'text_input', label: 'Text Input' },
+  { value: 'textarea', label: 'Text Area' },
+  { value: 'dropdown', label: 'Dropdown (Select)' },
   { value: 'multiselect', label: 'Multi-select' },
+  { value: 'date_picker', label: 'Date Picker' },
+  { value: 'file_upload', label: 'File Upload' },
 ];
 
 export function SchemaFieldEditor({
@@ -154,7 +167,7 @@ export function SchemaFieldEditor({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor={`${field.id}-type`}>Field Type *</Label>
+            <Label htmlFor={`${field.id}-type`}>Database Type</Label>
             <Select value={field.type} onValueChange={(value: any) => updateField({ type: value })}>
               <SelectTrigger id={`${field.id}-type`}>
                 <SelectValue />
@@ -167,6 +180,28 @@ export function SchemaFieldEditor({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor={`${field.id}-widget`}>UI Widget (Optional)</Label>
+            <Select
+              value={field.uiWidget || 'text_input'}
+              onValueChange={(value: any) => updateField({ uiWidget: value })}
+            >
+              <SelectTrigger id={`${field.id}-widget`}>
+                <SelectValue placeholder="Default: Text Input" />
+              </SelectTrigger>
+              <SelectContent>
+                {uiWidgets.map((widget) => (
+                  <SelectItem key={widget.value} value={widget.value}>
+                    {widget.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Controls how this field is displayed in forms
+            </p>
           </div>
 
           <div className="space-y-2">
@@ -204,7 +239,7 @@ export function SchemaFieldEditor({
             </div>
           </div>
 
-          {(field.type === 'select' || field.type === 'multiselect') && (
+          {(field.uiWidget === 'dropdown' || field.uiWidget === 'multiselect') && (
             <div className="space-y-2">
               <Label htmlFor={`${field.id}-options`}>Options (one per line)</Label>
               <Textarea

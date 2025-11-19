@@ -42,7 +42,7 @@ export default function DynamicRecordEditor() {
           defaults[field.name] = field.default_value;
         } else if (field.type === 'boolean') {
           defaults[field.name] = false;
-        } else if (field.type === 'array') {
+        } else if (field.type.includes('_array')) {
           defaults[field.name] = [];
         }
       });

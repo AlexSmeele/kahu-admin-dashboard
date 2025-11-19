@@ -172,8 +172,8 @@ export function TableSchemaEditor() {
       'text': 'text',
       'character varying': 'text',
       'varchar': 'text',
-      'integer': 'number',
-      'bigint': 'number',
+      'integer': 'integer',
+      'bigint': 'bigint',
       'numeric': 'number',
       'real': 'number',
       'double precision': 'number',
@@ -182,11 +182,13 @@ export function TableSchemaEditor() {
       'timestamp with time zone': 'datetime',
       'timestamp without time zone': 'datetime',
       'time': 'time',
-      'uuid': 'text',
+      'uuid': 'uuid',
       'jsonb': 'json',
       'json': 'json',
-      'text[]': 'array',
-      'integer[]': 'array',
+      'text[]': 'text_array',
+      'integer[]': 'integer_array',
+      'uuid[]': 'uuid_array',
+      'jsonb[]': 'jsonb_array',
     };
     return typeMap[pgType.toLowerCase()] || 'text';
   };
@@ -517,14 +519,21 @@ export function TableSchemaEditor() {
   const mapFieldTypeToPostgres = (type: string): string => {
     const typeMap: Record<string, string> = {
       text: 'TEXT',
+      integer: 'INTEGER',
       number: 'NUMERIC',
+      bigint: 'BIGINT',
       boolean: 'BOOLEAN',
       date: 'DATE',
       datetime: 'TIMESTAMP WITH TIME ZONE',
       json: 'JSONB',
-      array: 'TEXT[]',
+      text_array: 'TEXT[]',
+      integer_array: 'INTEGER[]',
+      uuid_array: 'UUID[]',
+      jsonb_array: 'JSONB[]',
       uuid: 'UUID',
       file_url: 'TEXT',
+      // Legacy support for old schema definitions
+      array: 'TEXT[]',
       select: 'TEXT',
       multiselect: 'TEXT[]',
     };
@@ -747,8 +756,8 @@ export function TableSchemaEditor() {
               blockers.push(`❌ BLOCKING: ${conversionSafe.warning} for column "${columnName}"`);
               
               // Enhanced array-to-scalar detection with data preview
-              if ((oldField.type === 'array' || oldField.type === 'multiselect') && 
-                  (newField.type !== 'array' && newField.type !== 'multiselect')) {
+              const isArrayType = (type: string) => type.includes('_array');
+              if (isArrayType(oldField.type) && !isArrayType(newField.type)) {
                 blockers.push(`💡 Converting array to single value will result in data loss. Only the first element will be retained.`);
                 
                 // Show sample data preview
