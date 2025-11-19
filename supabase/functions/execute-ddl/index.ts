@@ -65,35 +65,47 @@ Deno.serve(async (req) => {
     }
 
     // Validate SQL to prevent dangerous operations
-    const sqlLower = sql.toLowerCase().trim();
+    // Split by semicolons and validate each statement
+    const statements = sql
+      .split(';')
+      .map(s => s.trim())
+      .filter(s => s.length > 0);
+
     const allowedPatterns = [
-      /^create\s+table/,
-      /^alter\s+table/,
-      /^create\s+index/,
-      /^create\s+policy/,
-      /^alter\s+table.*enable\s+row\s+level\s+security/,
+      /^create\s+table/i,
+      /^alter\s+table/i,
+      /^create\s+index/i,
+      /^create\s+policy/i,
+      /^alter\s+table.*enable\s+row\s+level\s+security/i,
+      /^create\s+(or\s+replace\s+)?function/i,
+      /^create\s+(or\s+replace\s+)?trigger/i,
     ];
 
     const disallowedPatterns = [
-      /drop\s+database/,
-      /drop\s+schema/,
-      /truncate\s+table\s+(auth\.|storage\.|realtime\.|supabase_functions\.|vault\.)/,
-      /delete\s+from\s+(auth\.|storage\.|realtime\.|supabase_functions\.|vault\.)/,
-      /alter\s+database/,
-      /grant/,
-      /revoke/,
+      /drop\s+database/i,
+      /drop\s+schema/i,
+      /truncate\s+table\s+(auth\.|storage\.|realtime\.|supabase_functions\.|vault\.)/i,
+      /delete\s+from\s+(auth\.|storage\.|realtime\.|supabase_functions\.|vault\.)/i,
+      /alter\s+database/i,
+      /grant/i,
+      /revoke/i,
     ];
 
-    // Check for disallowed patterns
-    const hasDisallowed = disallowedPatterns.some(pattern => pattern.test(sqlLower));
-    if (hasDisallowed) {
-      throw new Error('SQL contains disallowed operations');
-    }
+    // Check each statement
+    for (const statement of statements) {
+      const statementLower = statement.toLowerCase().trim();
+      
+      // Check for disallowed patterns
+      const hasDisallowed = disallowedPatterns.some(pattern => pattern.test(statementLower));
+      if (hasDisallowed) {
+        throw new Error('SQL contains disallowed operations');
+      }
 
-    // Check for allowed patterns
-    const isAllowed = allowedPatterns.some(pattern => pattern.test(sqlLower));
-    if (!isAllowed) {
-      throw new Error('Only CREATE TABLE, ALTER TABLE, CREATE INDEX, and RLS policies are allowed');
+      // Check for allowed patterns
+      const isAllowed = allowedPatterns.some(pattern => pattern.test(statementLower));
+      if (!isAllowed) {
+        throw new Error('Only CREATE TABLE, ALTER TABLE, CREATE INDEX, CREATE FUNCTION, CREATE TRIGGER, and RLS policies are allowed');
+      }
     }
 
     console.log('Executing DDL:', sql);
