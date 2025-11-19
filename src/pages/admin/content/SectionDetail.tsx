@@ -3,9 +3,23 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Table as TableIcon, Upload, Plus } from "lucide-react";
+import { ArrowLeft, Table as TableIcon, Upload, Plus, Edit, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function SectionDetail() {
   const { sectionId } = useParams();
@@ -13,6 +27,10 @@ export default function SectionDetail() {
   const [section, setSection] = useState<any>(null);
   const [tables, setTables] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedSection, setEditedSection] = useState<any>(null);
+  const [firstDeleteDialogOpen, setFirstDeleteDialogOpen] = useState(false);
+  const [secondDeleteDialogOpen, setSecondDeleteDialogOpen] = useState(false);
 
   useEffect(() => {
     fetchSectionAndTables();
@@ -47,6 +65,65 @@ export default function SectionDetail() {
     }
   };
 
+  const handleEditClick = () => {
+    setEditedSection({ ...section });
+    setIsEditing(true);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setEditedSection(null);
+  };
+
+  const handleSaveEdit = async () => {
+    try {
+      const { error } = await supabase
+        .from('admin_sections')
+        .update({
+          display_name: editedSection.display_name,
+          name: editedSection.name,
+          description: editedSection.description,
+          icon: editedSection.icon,
+          is_active: editedSection.is_active,
+        })
+        .eq('id', sectionId);
+
+      if (error) throw error;
+
+      toast.success("Section updated successfully");
+      setSection(editedSection);
+      setIsEditing(false);
+      setEditedSection(null);
+    } catch (error: any) {
+      console.error("Error:", error);
+      toast.error(`Failed to update section: ${error.message}`);
+    }
+  };
+
+  const handleFirstDeleteConfirm = () => {
+    setFirstDeleteDialogOpen(false);
+    setSecondDeleteDialogOpen(true);
+  };
+
+  const handleFinalDelete = async () => {
+    try {
+      const { error } = await supabase
+        .from('admin_sections')
+        .delete()
+        .eq('id', sectionId);
+
+      if (error) throw error;
+
+      toast.success("Section deleted successfully");
+      navigate('/admin/content/sections');
+    } catch (error: any) {
+      console.error("Error:", error);
+      toast.error(`Failed to delete section: ${error.message}`);
+    } finally {
+      setSecondDeleteDialogOpen(false);
+    }
+  };
+
   if (loading) return <div className="p-8">Loading...</div>;
   if (!section) return <div className="p-8">Section not found</div>;
 
@@ -64,23 +141,104 @@ export default function SectionDetail() {
       <div className="container max-w-7xl mx-auto px-4 md:px-8 py-8 space-y-8">
         {/* Header Section */}
         <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <h1 className="text-3xl md:text-4xl font-bold tracking-tight">{section.display_name}</h1>
-                <Badge variant={section.is_active ? "default" : "secondary"}>
-                  {section.is_active ? "Active" : "Inactive"}
-                </Badge>
+          {!isEditing ? (
+            <>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-3 mb-2">
+                    <h1 className="text-3xl md:text-4xl font-bold tracking-tight">{section.display_name}</h1>
+                    <Badge variant={section.is_active ? "default" : "secondary"}>
+                      {section.is_active ? "Active" : "Inactive"}
+                    </Badge>
+                  </div>
+                  {section.description && (
+                    <p className="text-muted-foreground text-base md:text-lg">{section.description}</p>
+                  )}
+                  <div className="mt-2 text-sm text-muted-foreground">
+                    <span className="font-mono bg-muted px-2 py-1 rounded">System name: {section.name}</span>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={handleEditClick} variant="outline" size="lg">
+                    <Edit className="h-4 w-4 mr-2" />
+                    Edit Section
+                  </Button>
+                  <Button onClick={() => navigate(`/admin/content/sections/${sectionId}/tables/new`)} size="lg">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Table
+                  </Button>
+                </div>
               </div>
-              {section.description && (
-                <p className="text-muted-foreground text-base md:text-lg">{section.description}</p>
-              )}
-            </div>
-            <Button onClick={() => navigate(`/admin/content/sections/${sectionId}/tables/new`)} size="lg">
-              <Plus className="h-4 w-4 mr-2" />
-              Create Table
-            </Button>
-          </div>
+            </>
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle>Edit Section</CardTitle>
+                <CardDescription>Update section information and settings</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="display_name">Display Name</Label>
+                    <Input
+                      id="display_name"
+                      value={editedSection.display_name}
+                      onChange={(e) => setEditedSection({ ...editedSection, display_name: e.target.value })}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="name">System Name</Label>
+                    <Input
+                      id="name"
+                      value={editedSection.name}
+                      onChange={(e) => setEditedSection({ ...editedSection, name: e.target.value })}
+                      placeholder="lowercase-with-dashes"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="description">Description</Label>
+                    <Textarea
+                      id="description"
+                      value={editedSection.description || ""}
+                      onChange={(e) => setEditedSection({ ...editedSection, description: e.target.value })}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="icon">Icon</Label>
+                    <Input
+                      id="icon"
+                      value={editedSection.icon || ""}
+                      onChange={(e) => setEditedSection({ ...editedSection, icon: e.target.value })}
+                      placeholder="Lucide icon name (e.g., GraduationCap)"
+                    />
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="is_active"
+                      checked={editedSection.is_active}
+                      onCheckedChange={(checked) => setEditedSection({ ...editedSection, is_active: checked })}
+                    />
+                    <Label htmlFor="is_active">Active</Label>
+                  </div>
+                </div>
+                <div className="flex gap-2 pt-4">
+                  <Button onClick={handleSaveEdit} className="flex-1">
+                    Save Changes
+                  </Button>
+                  <Button onClick={handleCancelEdit} variant="outline" className="flex-1">
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={() => setFirstDeleteDialogOpen(true)}
+                    variant="destructive"
+                    size="icon"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Content Tables Section */}
@@ -167,6 +325,44 @@ export default function SectionDetail() {
           )}
         </div>
       </div>
+
+      {/* First Delete Confirmation */}
+      <AlertDialog open={firstDeleteDialogOpen} onOpenChange={setFirstDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Section?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{section.display_name}"? This will also delete all content
+              tables within this section.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleFirstDeleteConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Yes, Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Second Delete Confirmation */}
+      <AlertDialog open={secondDeleteDialogOpen} onOpenChange={setSecondDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the section and all its content tables
+              from the database.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleFinalDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Permanently Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -4,9 +4,9 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2, GripVertical, FolderOpen } from "lucide-react";
+import { Plus, GripVertical, FolderOpen } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+
 import { SectionReorderDialog } from "@/components/admin/content/SectionReorderDialog";
 
 interface Section {
@@ -24,8 +24,6 @@ interface Section {
 export default function Sections() {
   const [sections, setSections] = useState<Section[]>([]);
   const [loading, setLoading] = useState(true);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [sectionToDelete, setSectionToDelete] = useState<Section | null>(null);
   const [reorderDialogOpen, setReorderDialogOpen] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -54,39 +52,6 @@ export default function Sections() {
     }
   };
 
-  const handleDelete = async () => {
-    if (!sectionToDelete) return;
-
-    try {
-      const { error } = await supabase
-        .from("admin_sections")
-        .delete()
-        .eq("id", sectionToDelete.id);
-
-      if (error) throw error;
-
-      toast({
-        title: "Section deleted",
-        description: `${sectionToDelete.display_name} has been deleted.`,
-      });
-
-      fetchSections();
-    } catch (error: any) {
-      toast({
-        title: "Error deleting section",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setDeleteDialogOpen(false);
-      setSectionToDelete(null);
-    }
-  };
-
-  const confirmDelete = (section: Section) => {
-    setSectionToDelete(section);
-    setDeleteDialogOpen(true);
-  };
 
   if (loading) {
     return (
@@ -184,26 +149,6 @@ export default function Sections() {
                       >
                         View Details
                       </Button>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/admin/content/sections/${section.id}/tables`);
-                        }}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          confirmDelete(section);
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -218,24 +163,6 @@ export default function Sections() {
         onOpenChange={setReorderDialogOpen}
         onReorderComplete={fetchSections}
       />
-
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Section</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete "{sectionToDelete?.display_name}"? This will also delete all content
-              tables within this section. This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </>
   );
 }
