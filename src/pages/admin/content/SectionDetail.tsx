@@ -408,7 +408,7 @@ export default function SectionDetail() {
           ) : (
             <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
               {tables.map((table) => (
-                <Card key={table.id} className="group hover:shadow-lg hover:border-primary/20 transition-all duration-200 overflow-hidden">
+                <Card key={table.id} className="group hover:shadow-lg hover:border-primary/20 transition-all duration-200 overflow-hidden flex flex-col min-h-[380px]">
                   {/* Header with Icon and Status */}
                   <div className="relative bg-gradient-to-br from-primary/5 to-primary/10 px-6 pt-6 pb-4">
                     <div className="flex items-start justify-between gap-3 mb-3">
@@ -417,7 +417,10 @@ export default function SectionDetail() {
                           <TableIcon className="h-5 w-5 text-primary" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <h3 className="text-lg font-semibold leading-tight line-clamp-2 mb-1">
+                          <h3 
+                            className="text-lg font-semibold leading-tight truncate mb-1" 
+                            title={table.display_name}
+                          >
                             {table.display_name}
                           </h3>
                           <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -427,13 +430,13 @@ export default function SectionDetail() {
                           </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-start gap-2 flex-wrap">
                         {(() => {
                           const status = getSchemaStatus(table);
                           return (
                             <Badge 
                               variant={status.variant}
-                              className="shrink-0 shadow-sm"
+                              className="shrink-0 shadow-sm whitespace-nowrap"
                             >
                               {status.valid ? (
                                 <CheckCircle className="h-3 w-3 mr-1" />
@@ -446,27 +449,36 @@ export default function SectionDetail() {
                         })()}
                         <Badge 
                           variant={table.is_active ? "default" : "secondary"} 
-                          className="shrink-0 shadow-sm"
+                          className="shrink-0 shadow-sm whitespace-nowrap"
                         >
                           {table.is_active ? "Active" : "Inactive"}
                         </Badge>
                       </div>
                     </div>
                     {table.description && (
-                      <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">
+                      <p 
+                        className="text-sm text-muted-foreground line-clamp-2 leading-relaxed min-h-[2.5rem]" 
+                        title={table.description}
+                      >
                         {table.description}
                       </p>
                     )}
+                    {!table.description && (
+                      <div className="min-h-[2.5rem]" />
+                    )}
                   </div>
 
-                  <CardContent className="space-y-4 p-6">
+                  <CardContent className="space-y-4 p-6 flex flex-col flex-1">
                     {/* Metadata Grid */}
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 gap-3 flex-1">
                       <div className="space-y-1.5">
                         <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                           Table Name
                         </div>
-                        <code className="block text-xs font-mono bg-muted px-2.5 py-1.5 rounded border text-foreground break-all">
+                        <code 
+                          className="block text-xs font-mono bg-muted px-2.5 py-1.5 rounded border text-foreground break-words max-w-full overflow-x-auto" 
+                          title={table.table_name}
+                        >
                           {table.table_name}
                         </code>
                       </div>
