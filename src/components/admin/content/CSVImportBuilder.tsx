@@ -56,6 +56,124 @@ export function CSVImportBuilder({ sectionId }: CSVImportBuilderProps) {
   const [errors, setErrors] = useState<string[]>([]);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [tableNameError, setTableNameError] = useState<string>('');
+  const [validationResults, setValidationResults] = useState<{
+    valid: number;
+    warnings: string[];
+    errors: string[];
+  } | null>(null);
+  const [showValidation, setShowValidation] = useState(false);
+  const [conflictStrategy, setConflictStrategy] = useState<'skip' | 'upsert' | 'fail'>('fail');
+
+  const transformValue = (value: any, targetType: string): any => {
+    if (value === null || value === undefined || value === '') return null;
+
+    const strValue = String(value).trim();
+    
+    // Handle PostgreSQL types
+    if (targetType.includes('int') || targetType === 'bigint' || targetType === 'smallint') {
+      const num = parseInt(strValue);
+      if (isNaN(num)) throw new Error(`Cannot convert "${strValue}" to integer`);
+      return num;
+    }
+    
+    if (targetType.includes('numeric') || targetType.includes('decimal') || targetType === 'real' || targetType === 'double precision') {
+      const num = parseFloat(strValue);
+      if (isNaN(num)) throw new Error(`Cannot convert "${strValue}" to number`);
+      return num;
+    }
+    
+    if (targetType === 'boolean' || targetType === 'bool') {
+      const lower = strValue.toLowerCase();
+      if (['true', '1', 'yes', 't', 'y'].includes(lower)) return true;
+      if (['false', '0', 'no', 'f', 'n'].includes(lower)) return false;
+      throw new Error(`Cannot convert "${strValue}" to boolean`);
+    }
+    
+    if (targetType === 'date') {
+      const date = new Date(strValue);
+      if (isNaN(date.getTime())) throw new Error(`Cannot convert "${strValue}" to date`);
+      return date.toISOString().split('T')[0];
+    }
+    
+    if (targetType.includes('timestamp') || targetType.includes('timestamptz')) {
+      const date = new Date(strValue);
+      if (isNaN(date.getTime())) throw new Error(`Cannot convert "${strValue}" to timestamp`);
+      return date.toISOString();
+    }
+    
+    if (targetType === 'uuid') {
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(strValue)) throw new Error(`Invalid UUID format: "${strValue}"`);
+      return strValue;
+    }
+    
+    if (targetType === 'jsonb' || targetType === 'json') {
+      try {
+        return JSON.parse(strValue);
+      } catch {
+        throw new Error(`Invalid JSON: "${strValue}"`);
+      }
+    }
+    
+    if (targetType.includes('[]')) {
+      // Array type - try to parse as JSON array
+      try {
+        const parsed = JSON.parse(strValue);
+        if (Array.isArray(parsed)) return parsed;
+        throw new Error('Not an array');
+      } catch {
+        // Fallback: split by comma
+        return strValue.split(',').map(s => s.trim()).filter(Boolean);
+      }
+    }
+    
+    // Default: return as text
+    return strValue;
+  };
+
+  const validateImportData = () => {
+    const warnings: string[] = [];
+    const errors: string[] = [];
+    let validCount = 0;
+
+    csvData.forEach((row, rowIndex) => {
+      let rowValid = true;
+
+      mappings.forEach(mapping => {
+        const value = row[mapping.csvColumn];
+        
+        if (importMode === 'import' && existingTableSchema) {
+          const schemaField = existingTableSchema.columns.find(c => c.column_name === mapping.targetField);
+          
+          if (schemaField) {
+            // Check required fields
+            if (schemaField.is_nullable === 'NO' && (value === null || value === undefined || value === '')) {
+              errors.push(`Row ${rowIndex + 1}: Required field "${mapping.targetField}" is empty`);
+              rowValid = false;
+            }
+            
+            // Check type conversion safety
+            if (value !== null && value !== undefined && value !== '') {
+              try {
+                transformValue(value, schemaField.data_type);
+              } catch (error) {
+                warnings.push(`Row ${rowIndex + 1}: ${mapping.csvColumn} → ${mapping.targetField}: ${error instanceof Error ? error.message : 'Type conversion may fail'}`);
+              }
+            }
+          }
+        }
+      });
+
+      if (rowValid) validCount++;
+    });
+
+    setValidationResults({
+      valid: validCount,
+      warnings,
+      errors: errors.slice(0, 50), // Limit to first 50 errors
+    });
+    setShowValidation(true);
+  };
 
   const syncMappingsWithGroups = (
     currentMappings: ColumnMapping[], 
@@ -421,7 +539,7 @@ export function CSVImportBuilder({ sectionId }: CSVImportBuilderProps) {
       for (let i = 0; i < csvData.length; i += batchSize) {
         const batch = csvData.slice(i, i + batchSize);
         
-        const transformedBatch = batch.map(row => {
+        const transformedBatch = batch.map((row, rowIndex) => {
           const transformed: any = {};
           
           // Handle column groups
@@ -434,30 +552,24 @@ export function CSVImportBuilder({ sectionId }: CSVImportBuilderProps) {
             }
           });
 
-          // Handle regular mappings
-      const groupedColumns = new Set<string>(columnGroups.flatMap(g => g.sourceColumns));
-      mappings.forEach(mapping => {
-        if (!groupedColumns.has(mapping.csvColumn)) {
+          // Handle regular mappings with enhanced type conversion
+          const groupedColumns = new Set<string>(columnGroups.flatMap(g => g.sourceColumns));
+          mappings.forEach(mapping => {
+            if (!groupedColumns.has(mapping.csvColumn)) {
               let value = row[mapping.csvColumn];
               
               if (value !== null && value !== undefined && value !== '') {
-                switch (mapping.dataType) {
-                  case 'number':
-                  case 'decimal':
-                    transformed[mapping.targetField] = Number(value);
-                    break;
-                  case 'boolean':
-                    transformed[mapping.targetField] = ['true', '1', 'yes'].includes(String(value).toLowerCase());
-                    break;
-                  case 'json':
-                    try {
-                      transformed[mapping.targetField] = JSON.parse(value);
-                    } catch {
-                      transformed[mapping.targetField] = value;
-                    }
-                    break;
-                  default:
-                    transformed[mapping.targetField] = value;
+                try {
+                  // Get target type from existing schema if in import mode
+                  const targetType = importMode === 'import' 
+                    ? existingTableSchema?.columns.find(c => c.column_name === mapping.targetField)?.data_type || mapping.dataType
+                    : mapping.dataType;
+
+                  transformed[mapping.targetField] = transformValue(value, targetType);
+                } catch (error) {
+                  console.warn(`Failed to transform row ${i + rowIndex + 1}, column ${mapping.csvColumn}:`, error);
+                  // Keep original value on transformation failure
+                  transformed[mapping.targetField] = value;
                 }
               }
             }
@@ -732,6 +844,101 @@ export function CSVImportBuilder({ sectionId }: CSVImportBuilderProps) {
               </Dialog>
             </CardContent>
           </Card>
+        )}
+
+        {importMode === 'import' && existingTableSchema && (
+          <Card className="mb-4">
+            <CardHeader>
+              <CardTitle>Import Options</CardTitle>
+              <CardDescription>Choose how to handle conflicts</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>Conflict Strategy</Label>
+                <RadioGroup value={conflictStrategy} onValueChange={(v) => setConflictStrategy(v as any)}>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="fail" id="fail" />
+                    <Label htmlFor="fail" className="cursor-pointer font-normal">
+                      Fail on conflict (stop if duplicate found)
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="skip" id="skip" />
+                    <Label htmlFor="skip" className="cursor-pointer font-normal">
+                      Skip duplicates (continue with other rows)
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="upsert" id="upsert" />
+                    <Label htmlFor="upsert" className="cursor-pointer font-normal">
+                      Update existing records (upsert)
+                    </Label>
+                  </div>
+                </RadioGroup>
+              </div>
+              
+              <Button
+                type="button"
+                variant="outline"
+                onClick={validateImportData}
+                className="w-full"
+              >
+                <Eye className="h-4 w-4 mr-2" />
+                Validate Data Before Import
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {showValidation && validationResults && (
+          <Alert className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              <div className="space-y-2">
+                <div className="font-semibold">
+                  Validation Results: {validationResults.valid}/{csvData.length} rows valid
+                </div>
+                
+                {validationResults.errors.length > 0 && (
+                  <div>
+                    <div className="text-destructive font-medium">❌ Errors ({validationResults.errors.length}):</div>
+                    <div className="text-xs space-y-1 mt-1 max-h-32 overflow-y-auto">
+                      {validationResults.errors.slice(0, 10).map((err, i) => (
+                        <div key={i}>{err}</div>
+                      ))}
+                      {validationResults.errors.length > 10 && (
+                        <div className="text-muted-foreground">...and {validationResults.errors.length - 10} more</div>
+                      )}
+                    </div>
+                  </div>
+                )}
+                
+                {validationResults.warnings.length > 0 && (
+                  <div>
+                    <div className="text-amber-600 font-medium">⚠️ Warnings ({validationResults.warnings.length}):</div>
+                    <div className="text-xs space-y-1 mt-1 max-h-32 overflow-y-auto">
+                      {validationResults.warnings.slice(0, 10).map((warn, i) => (
+                        <div key={i}>{warn}</div>
+                      ))}
+                      {validationResults.warnings.length > 10 && (
+                        <div className="text-muted-foreground">...and {validationResults.warnings.length - 10} more</div>
+                      )}
+                    </div>
+                  </div>
+                )}
+                
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowValidation(false)}
+                  className="mt-2"
+                >
+                  Close
+                </Button>
+              </div>
+            </AlertDescription>
+          </Alert>
         )}
 
         <div className="flex gap-2">
