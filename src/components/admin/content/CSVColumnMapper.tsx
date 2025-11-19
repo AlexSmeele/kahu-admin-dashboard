@@ -92,6 +92,7 @@ export const CSVColumnMapper = ({ columns, existingFields, mappings, onMappingCh
             <TableRow>
               <TableHead className="w-[80px]">Order</TableHead>
               <TableHead>CSV Column / Target Field</TableHead>
+              <TableHead className="w-[200px]">Sample Data</TableHead>
               <TableHead>Type</TableHead>
               <TableHead className="w-[200px]">Configuration</TableHead>
             </TableRow>
@@ -127,6 +128,9 @@ export const CSVColumnMapper = ({ columns, existingFields, mappings, onMappingCh
                           <Badge variant="secondary" className="text-xs">Grouped ({group.sourceColumns.length})</Badge>
                         </div>
                       </TableCell>
+                      <TableCell>
+                        <span className="text-xs text-muted-foreground">Array of values</span>
+                      </TableCell>
                       <TableCell><Badge variant="outline">json</Badge></TableCell>
                       <TableCell><span className="text-xs text-muted-foreground">Array field</span></TableCell>
                     </TableRow>
@@ -139,6 +143,11 @@ export const CSVColumnMapper = ({ columns, existingFields, mappings, onMappingCh
                       <TableRow key={`child-${colName}`} className="bg-muted/30">
                         <TableCell></TableCell>
                         <TableCell className="pl-8"><div className="flex items-center gap-2"><span className="text-muted-foreground">↳</span><span className="text-sm">{column.name}</span></div></TableCell>
+                        <TableCell>
+                          <span className="text-xs text-muted-foreground truncate max-w-[200px] block">
+                            {column.sampleValues[0] || 'empty'}
+                          </span>
+                        </TableCell>
                         <TableCell><Badge variant="outline" className="text-xs">{column.detectedType}</Badge></TableCell>
                         <TableCell><span className="text-xs text-muted-foreground">Element {group.sourceColumns.indexOf(colName) + 1}</span></TableCell>
                       </TableRow>
@@ -171,6 +180,15 @@ export const CSVColumnMapper = ({ columns, existingFields, mappings, onMappingCh
                               <SelectContent>{existingFields?.map(field => <SelectItem key={field} value={field}>{field}</SelectItem>)}</SelectContent>
                             </Select>
                           )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-xs text-muted-foreground space-y-1">
+                          {column.sampleValues.slice(0, 2).map((val, idx) => (
+                            <div key={idx} className="truncate max-w-[200px]">
+                              {val || <span className="italic">empty</span>}
+                            </div>
+                          ))}
                         </div>
                       </TableCell>
                       <TableCell><Badge variant="outline" className="text-xs">{column.detectedType}</Badge></TableCell>
