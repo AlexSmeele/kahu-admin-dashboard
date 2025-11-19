@@ -48,9 +48,9 @@ export function MediaCard({ media, onDelete }: MediaCardProps) {
         </div>
       </div>
       <CardContent className="p-4">
-        <div className="space-y-2">
+        <div className="space-y-3">
           <div>
-            <h3 className="font-semibold line-clamp-1">{media.title}</h3>
+            <h3 className="font-semibold line-clamp-1 text-lg">{media.title}</h3>
             {media.description && (
               <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
                 {media.description}
@@ -58,12 +58,15 @@ export function MediaCard({ media, onDelete }: MediaCardProps) {
             )}
           </div>
           {media.tags && media.tags.length > 0 && (
-            <div className="flex flex-wrap gap-1">
-              {media.tags.map((tag) => (
-                <Badge key={tag} variant="outline" className="text-xs">
-                  {tag}
-                </Badge>
-              ))}
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-muted-foreground">Tags:</p>
+              <div className="flex flex-wrap gap-1.5">
+                {media.tags.map((tag) => (
+                  <Badge key={tag} variant="secondary" className="text-xs font-medium">
+                    {tag}
+                  </Badge>
+                ))}
+              </div>
             </div>
           )}
           <div className="flex items-center justify-between pt-2">
