@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
 import { StepsEditor } from "@/components/admin/training/StepsEditor";
+import { ImageManager } from "@/components/admin/training/ImageManager";
 
 interface Module {
   id: string;
@@ -32,6 +33,7 @@ interface Module {
   detailed_description: string;
   brief_steps: any;
   detailed_steps: any;
+  images: any | null;
   created_at: string;
   updated_at: string;
 }
@@ -58,6 +60,20 @@ export default function ModuleDetail() {
         return Array.isArray(parsed) ? parsed : [steps];
       } catch {
         return [steps];
+      }
+    }
+    return [];
+  };
+
+  const parseImages = (images: any): Array<{ url: string; order: number; tags?: string[] }> => {
+    if (!images) return [];
+    if (Array.isArray(images)) return images;
+    if (typeof images === 'string') {
+      try {
+        const parsed = JSON.parse(images);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
       }
     }
     return [];
@@ -105,6 +121,7 @@ export default function ModuleDetail() {
           detailed_description: formData.detailed_description,
           brief_steps: formData.brief_steps,
           detailed_steps: formData.detailed_steps,
+          images: formData.images,
         })
         .eq("id", id);
 
@@ -388,6 +405,21 @@ export default function ModuleDetail() {
               editing={editing}
               label="Detailed Steps"
               placeholder="Enter a detailed step..."
+            />
+          </CardContent>
+        </Card>
+
+        {/* Images */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Images</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ImageManager
+              images={parseImages(formData.images)}
+              onChange={(images) => setFormData({ ...formData, images })}
+              editing={editing}
+              skillId={id || ""}
             />
           </CardContent>
         </Card>

@@ -217,8 +217,8 @@ serve(async (req) => {
           }
         } else if (conflictStrategy === 'skip') {
           const { error: insertError } = await supabase
-            .from(tableName)
-            .insert(batch, { ignoreDuplicates: true });
+        .from(tableName)
+        .insert(batch);
 
           if (insertError) {
             console.error(`Batch ${i + 1} insert error:`, insertError);
