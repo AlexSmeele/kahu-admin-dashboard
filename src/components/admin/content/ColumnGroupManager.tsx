@@ -4,8 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronUp, ChevronDown, X, Plus, Layers } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { ChevronUp, ChevronDown, X, Plus, Layers, AlertCircle, CheckCircle2 } from "lucide-react";
 import { CSVColumn } from "./CSVColumnMapper";
 
 export interface ColumnGroup {
@@ -31,11 +31,31 @@ export function ColumnGroupManager({
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
   const [selectedColumns, setSelectedColumns] = useState<string[]>([]);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   const availableColumns = columns.filter(col => !groupedColumns.has(col.name));
 
+  const validateGroupName = (name: string): string | null => {
+    if (!name.trim()) return "Group name is required";
+    
+    const fieldName = name.toLowerCase().replace(/\s+/g, '_');
+    
+    // Check if field name conflicts with existing groups
+    if (groups.some(g => g.targetField === fieldName)) {
+      return "A group with this name already exists";
+    }
+    
+    // Check for valid field name pattern
+    if (!/^[a-z][a-z0-9_]*$/.test(fieldName)) {
+      return "Name must start with a letter and contain only lowercase letters, numbers, and underscores";
+    }
+    
+    return null;
+  };
+
   const createGroup = () => {
-    if (!newGroupName.trim() || selectedColumns.length < 2) {
+    const validationError = validateGroupName(newGroupName);
+    if (validationError || selectedColumns.length < 2) {
       return;
     }
 
@@ -129,10 +149,23 @@ export function ColumnGroupManager({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {groups.length > 0 && (
+          <Alert>
+            <CheckCircle2 className="h-4 w-4" />
+            <AlertDescription>
+              {groups.length} column {groups.length === 1 ? 'group' : 'groups'} configured. 
+              These columns will be combined into JSONB arrays during import.
+            </AlertDescription>
+          </Alert>
+        )}
+        
         {groups.length === 0 && !isCreatingGroup && (
-          <div className="text-center py-8 text-muted-foreground">
-            No column groups created yet. Groups combine columns like "Step 1", "Step 2" into arrays.
-          </div>
+          <Alert>
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              No column groups created yet. Groups combine multiple columns (like "Step 1", "Step 2", "Step 3") into single JSONB array fields.
+            </AlertDescription>
+          </Alert>
         )}
 
         {/* Existing Groups */}
@@ -201,8 +234,13 @@ export function ColumnGroupManager({
                   </Button>
                 </div>
               ))}
-              <div className="mt-2 p-2 rounded bg-primary/5 text-xs">
-                <strong>Preview:</strong> [{group.sourceColumns.map((_, i) => `\"value${i + 1}\"`).join(', ')}]
+              <div className="mt-2 p-3 rounded bg-primary/5 border border-primary/20">
+                <p className="text-xs font-medium mb-1">Example output:</p>
+                <div className="text-xs font-mono bg-background p-2 rounded">
+                  {`"${group.targetField}": [`}
+                  {group.sourceColumns.map((col, i) => `"${col} value"`).join(', ')}
+                  {']'}
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -219,10 +257,19 @@ export function ColumnGroupManager({
                 <Label>Group Name</Label>
                 <Input
                   value={newGroupName}
-                  onChange={(e) => setNewGroupName(e.target.value)}
+                  onChange={(e) => {
+                    setNewGroupName(e.target.value);
+                    setValidationError(validateGroupName(e.target.value));
+                  }}
                   placeholder="e.g., steps, brief_instructions"
                   className="mt-1"
                 />
+                {validationError && (
+                  <p className="text-sm text-destructive mt-1">{validationError}</p>
+                )}
+                <p className="text-xs text-muted-foreground mt-1">
+                  Will be saved as: {newGroupName.toLowerCase().replace(/\s+/g, '_') || 'field_name'}
+                </p>
               </div>
               
               <div>
@@ -249,13 +296,25 @@ export function ColumnGroupManager({
                 </div>
               </div>
 
+              {selectedColumns.length > 0 && (
+                <div className="p-3 rounded bg-primary/5 border border-primary/20">
+                  <p className="text-sm font-medium mb-2">Preview of combined data:</p>
+                  <div className="text-xs font-mono bg-background p-2 rounded">
+                    [{selectedColumns.map((col, i) => `"${col} value"`).join(', ')}]
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    {selectedColumns.length} columns selected • Will combine into array
+                  </p>
+                </div>
+              )}
+
               <div className="flex gap-2">
                 <Button
                   onClick={createGroup}
-                  disabled={!newGroupName.trim() || selectedColumns.length < 2}
+                  disabled={!!validationError || !newGroupName.trim() || selectedColumns.length < 2}
                   className="flex-1"
                 >
-                  Create Group
+                  Create Group ({selectedColumns.length} columns)
                 </Button>
                 <Button
                   variant="outline"
