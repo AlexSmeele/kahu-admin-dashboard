@@ -136,10 +136,16 @@ export default function ContentTables() {
               Manage content tables and their schemas
             </p>
           </div>
-          <Button onClick={() => navigate(`/admin/content/sections/${sectionId}/tables/new`)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Table
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => navigate(`/admin/content/sections/${sectionId}/import`)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Import CSV
+            </Button>
+            <Button onClick={() => navigate(`/admin/content/sections/${sectionId}/tables/new`)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Table
+            </Button>
+          </div>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
