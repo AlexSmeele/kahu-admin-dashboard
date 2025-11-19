@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Upload, CheckCircle, AlertCircle, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import Papa from "papaparse";
 import { CSVUploader } from "@/components/admin/content/CSVUploader";
 import { CSVColumnMapper, CSVColumn, ColumnMapping } from "@/components/admin/content/CSVColumnMapper";
 import { ColumnGroupManager, ColumnGroup } from "@/components/admin/content/ColumnGroupManager";
@@ -102,20 +103,28 @@ export default function CSVImport() {
   };
 
   const parseCSV = (text: string): any[] => {
-    const lines = text.split('\n').filter(line => line.trim());
-    if (lines.length === 0) return [];
-
-    const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
-    const rows = lines.slice(1).map(line => {
-      const values = line.split(',').map(v => v.trim().replace(/^"|"$/g, ''));
-      const row: any = {};
-      headers.forEach((header, i) => {
-        row[header] = values[i] || '';
-      });
-      return row;
+    const result = Papa.parse(text, {
+      header: true,
+      skipEmptyLines: true,
+      dynamicTyping: false,
+      transformHeader: (h) => h.trim(),
+      transform: (value) => value.trim(),
     });
-
-    return [{ headers }, ...rows];
+    
+    if (result.errors.length > 0) {
+      console.error('CSV parsing errors:', result.errors);
+      result.errors.forEach(error => {
+        if (error.type !== 'FieldMismatch') {
+          toast({
+            title: "CSV parsing warning",
+            description: error.message,
+            variant: "destructive",
+          });
+        }
+      });
+    }
+    
+    return result.data as any[];
   };
 
   const handleFileSelect = async (selectedFile: File) => {
@@ -134,17 +143,27 @@ export default function CSVImport() {
       const text = await selectedFile.text();
       const parsed = parseCSV(text);
       
-      if (parsed.length < 2) {
+      if (parsed.length === 0) {
         toast({
           title: "Invalid CSV",
-          description: "CSV file must contain headers and at least one row of data",
+          description: "CSV file must contain at least one row of data",
           variant: "destructive",
         });
         return;
       }
 
-      const headers = parsed[0].headers;
-      const dataRows = parsed.slice(1);
+      // Extract headers from the first row object
+      const headers = Object.keys(parsed[0]).filter(h => h && h.trim());
+      if (headers.length === 0) {
+        toast({
+          title: "Invalid CSV",
+          description: "No valid columns found in CSV",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      const dataRows = parsed;
       
       // Analyze columns
       const analyzedColumns: CSVColumn[] = headers.map((header: string, index: number) => {
