@@ -1385,8 +1385,18 @@ export function TableSchemaEditor() {
       <Card className="mb-6">
         <CardHeader>
           <CardTitle>Table Columns</CardTitle>
+          <CardDescription>
+            Click any field to edit column properties. Expand rows to modify labels, defaults, and descriptions.
+          </CardDescription>
         </CardHeader>
         <CardContent>
+          <Alert className="mb-4 bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-900">
+            <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            <AlertDescription className="text-sm text-blue-800 dark:text-blue-300">
+              <strong>Editing columns:</strong> All fields are editable. Changes are tracked and validated before applying to the database.
+            </AlertDescription>
+          </Alert>
+          
           <div className="space-y-2">
             {fields.map((field, index) => {
               const change = changes.find(c => c.columnName === field.name);

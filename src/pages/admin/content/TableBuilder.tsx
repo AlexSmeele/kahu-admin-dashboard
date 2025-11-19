@@ -20,28 +20,30 @@ export default function TableBuilder() {
 
   return (
     <div className="container mx-auto py-8 px-4 max-w-7xl">
-      <div className="mb-6">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => navigate(`/admin/content/sections/${sectionId}`)}
-          className="mb-4"
-        >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Section
-        </Button>
+      {!isEditMode && (
+        <div className="mb-6">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate(`/admin/content/sections/${sectionId}`)}
+            className="mb-4"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Section
+          </Button>
 
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">
-              {isEditMode ? 'Edit Table' : 'Create New Table'}
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              {isEditMode ? 'Update table configuration' : 'Choose how you want to create your table'}
-            </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold">
+                {isEditMode ? 'Edit Table' : 'Create New Table'}
+              </h1>
+              <p className="text-muted-foreground mt-1">
+                {isEditMode ? 'Update table configuration' : 'Choose how you want to create your table'}
+              </p>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {!isEditMode && (
         <Card className="mb-6">
