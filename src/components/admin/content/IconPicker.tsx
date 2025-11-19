@@ -18,7 +18,7 @@ const COMMON_ICONS = [
   "TrendingUp", "BarChart", "PieChart", "Activity", "Zap",
   "Shield", "Lock", "Key", "Eye", "Flag",
   "Grid", "List", "Layers", "Layout", "Sidebar",
-  "Tool", "Wrench", "Code", "Terminal", "Cpu",
+  "Wrench", "Code", "Terminal", "Cpu",
   "Palette", "Paintbrush", "Pencil", "Edit", "Trash",
   "Plus", "Minus", "X", "Check", "Info",
   "HelpCircle", "AlertCircle", "AlertTriangle", "Ban", "DollarSign"
