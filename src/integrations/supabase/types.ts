@@ -1142,6 +1142,7 @@ export type Database = {
           format: string
           id: string
           ideal_stage: string
+          images: Json | null
           is_published: boolean
           name: string
           order_index: number
@@ -1158,6 +1159,7 @@ export type Database = {
           format: string
           id?: string
           ideal_stage: string
+          images?: Json | null
           is_published?: boolean
           name: string
           order_index?: number
@@ -1174,6 +1176,7 @@ export type Database = {
           format?: string
           id?: string
           ideal_stage?: string
+          images?: Json | null
           is_published?: boolean
           name?: string
           order_index?: number
