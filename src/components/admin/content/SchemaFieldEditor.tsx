@@ -180,6 +180,9 @@ export function SchemaFieldEditor({
                 ))}
               </SelectContent>
             </Select>
+            <p className="text-xs text-muted-foreground">
+              PostgreSQL column type stored in the database
+            </p>
           </div>
 
           <div className="space-y-2">
@@ -200,7 +203,7 @@ export function SchemaFieldEditor({
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
-              Controls how this field is displayed in forms
+              How this field is rendered in forms (independent of database type)
             </p>
           </div>
 
