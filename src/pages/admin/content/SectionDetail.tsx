@@ -113,7 +113,7 @@ export default function SectionDetail() {
                     <Button 
                       size="sm" 
                       className="w-full"
-                      onClick={() => navigate(`/admin/content/sections/${sectionId}/tables/${table.id}/manage`)}
+                      onClick={() => navigate(`/admin/content/sections/${sectionId}/tables/${table.id}/records`)}
                     >
                       Manage Data
                     </Button>
@@ -121,7 +121,7 @@ export default function SectionDetail() {
                       size="sm" 
                       variant="outline" 
                       className="w-full"
-                      onClick={() => navigate(`/admin/content/sections/${sectionId}/tables/${table.id}`)}
+                      onClick={() => navigate(`/admin/content/sections/${sectionId}/tables/new?tableId=${table.id}`)}
                     >
                       Edit Schema
                     </Button>
