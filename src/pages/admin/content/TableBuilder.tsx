@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { ManualSchemaBuilder } from "@/components/admin/content/ManualSchemaBuilder";
 import { CSVImportBuilder } from "@/components/admin/content/CSVImportBuilder";
 import { ExistingTableConnector } from "@/components/admin/content/ExistingTableConnector";
+import { TableSchemaEditor } from "@/components/admin/content/TableSchemaEditor";
 
 type CreationMethod = 'manual' | 'csv' | 'existing';
 
@@ -92,9 +93,15 @@ export default function TableBuilder() {
         </Card>
       )}
 
-      {method === 'manual' && <ManualSchemaBuilder sectionId={sectionId!} tableId={tableId} />}
-      {method === 'csv' && <CSVImportBuilder sectionId={sectionId!} />}
-      {method === 'existing' && <ExistingTableConnector sectionId={sectionId!} />}
+      {isEditMode ? (
+        <TableSchemaEditor />
+      ) : (
+        <>
+          {method === 'manual' && <ManualSchemaBuilder sectionId={sectionId!} tableId={tableId} />}
+          {method === 'csv' && <CSVImportBuilder sectionId={sectionId!} />}
+          {method === 'existing' && <ExistingTableConnector sectionId={sectionId!} />}
+        </>
+      )}
     </div>
   );
 }
