@@ -109,7 +109,7 @@ export function AdminLayout() {
           icon: Layers,
           children: sectionTables.map((table: ContentTable) => ({
             title: table.display_name,
-            href: `/admin/content/sections/${section.id}/tables/${table.id}/records`,
+            href: `/admin/content/sections/${section.id}/tables/${table.id}`,
             icon: FileText,
           })),
         };
