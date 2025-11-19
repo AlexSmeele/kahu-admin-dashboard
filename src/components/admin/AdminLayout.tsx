@@ -145,24 +145,28 @@ export function AdminLayout() {
     fixMissingRouteOverrides();
   }, []);
 
-  // Fix missing route overrides for custom pages
+  // Fix missing route overrides and table name mappings for custom pages
   const fixMissingRouteOverrides = async () => {
     const routeFixes = [
-      { name: 'foundation-modules', route: '/admin/training/modules' },
-      { name: 'troubleshooting_modules', route: '/admin/training/troubleshooting' },
-      { name: 'vaccines', route: '/admin/dogs/vaccines' },
-      { name: 'treatments', route: '/admin/dogs/treatments' },
+      { name: 'foundation-modules', route: '/admin/training/modules', tableName: null },
+      { name: 'troubleshooting_modules', route: '/admin/training/troubleshooting', tableName: 'troubleshooting_issues' },
+      { name: 'vaccines', route: '/admin/dogs/vaccines', tableName: 'vaccines' },
+      { name: 'treatments', route: '/admin/dogs/treatments', tableName: 'medical_treatments' },
     ];
 
     for (const fix of routeFixes) {
+      const updates: any = { route_override: fix.route };
+      if (fix.tableName) {
+        updates.table_name = fix.tableName;
+      }
+      
       const { error } = await supabase
         .from('admin_content_tables')
-        .update({ route_override: fix.route })
-        .eq('name', fix.name)
-        .is('route_override', null);
+        .update(updates)
+        .eq('name', fix.name);
       
       if (error) {
-        console.error(`Failed to fix route for ${fix.name}:`, error);
+        console.error(`Failed to fix route/table for ${fix.name}:`, error);
       }
     }
   };
