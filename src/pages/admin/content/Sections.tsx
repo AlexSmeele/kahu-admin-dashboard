@@ -3,7 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, Pencil, Trash2, GripVertical } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Plus, Pencil, Trash2, GripVertical, FolderOpen } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
@@ -86,96 +87,122 @@ export default function Sections() {
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center h-64">Loading...</div>;
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
   }
 
   return (
     <>
-      <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold">Content Sections</h1>
-            <p className="text-sm md:text-base text-muted-foreground">
-              Manage content sections and their organization
-            </p>
+      <div className="min-h-screen bg-background">
+        <div className="container max-w-7xl mx-auto px-4 md:px-8 py-8 space-y-8">
+          {/* Header Section */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Content Sections</h1>
+              <p className="text-base md:text-lg text-muted-foreground mt-2">
+                Organize and manage your content library
+              </p>
+            </div>
+            <Button onClick={() => navigate("/admin/content/sections/new")} size="lg">
+              <Plus className="mr-2 h-4 w-4" />
+              Add Section
+            </Button>
           </div>
-          <Button onClick={() => navigate("/admin/content/sections/new")}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Section
-          </Button>
-        </div>
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {sections.map((section) => (
-            <Card key={section.id} className="relative">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <CardTitle className="flex items-center gap-2">
-                      <GripVertical className="h-4 w-4 text-muted-foreground" />
-                      {section.display_name}
-                    </CardTitle>
-                    <CardDescription className="mt-1">
-                      {section.description || "No description"}
-                    </CardDescription>
-                  </div>
-                  <div className="flex gap-1">
-                    <Button
-                      size="sm"
-                      onClick={() => navigate(`/admin/content/sections/${section.id}`)}
-                    >
-                      View Details
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => navigate(`/admin/content/sections/${section.id}/tables`)}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => confirmDelete(section)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
+          {/* Sections Grid */}
+          {sections.length === 0 ? (
+            <Card className="border-dashed">
+              <CardContent className="py-12 text-center">
+                <div className="mx-auto w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-4">
+                  <FolderOpen className="h-6 w-6 text-muted-foreground" />
                 </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">System Name:</span>
-                    <span className="font-mono">{section.name}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Order:</span>
-                    <span>{section.order_index}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Status:</span>
-                    <span className={section.is_active ? "text-green-600" : "text-red-600"}>
-                      {section.is_active ? "Active" : "Inactive"}
-                    </span>
-                  </div>
-                </div>
+                <h3 className="text-lg font-semibold mb-2">No sections yet</h3>
+                <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
+                  Create your first content section to get started
+                </p>
+                <Button onClick={() => navigate("/admin/content/sections/new")}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Create First Section
+                </Button>
               </CardContent>
             </Card>
-          ))}
+          ) : (
+            <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+              {sections.map((section) => (
+                <Card 
+                  key={section.id} 
+                  className="group hover:shadow-lg hover:border-primary/20 transition-all duration-200 cursor-pointer"
+                  onClick={() => navigate(`/admin/content/sections/${section.id}`)}
+                >
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <CardTitle className="flex items-center gap-2 text-lg mb-2">
+                          <div className="p-2 rounded-lg bg-primary/10 text-primary shrink-0">
+                            <GripVertical className="h-4 w-4" />
+                          </div>
+                          <span className="line-clamp-1">{section.display_name}</span>
+                        </CardTitle>
+                        <CardDescription className="line-clamp-2">
+                          {section.description || "No description provided"}
+                        </CardDescription>
+                      </div>
+                      <Badge variant={section.is_active ? "default" : "secondary"} className="shrink-0">
+                        {section.is_active ? "Active" : "Inactive"}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-2 gap-3 p-3 rounded-lg bg-muted/50 text-sm">
+                      <div>
+                        <div className="text-muted-foreground mb-1">System Name</div>
+                        <code className="text-xs font-mono bg-background px-2 py-1 rounded border block truncate">
+                          {section.name}
+                        </code>
+                      </div>
+                      <div>
+                        <div className="text-muted-foreground mb-1">Order</div>
+                        <div className="font-semibold">{section.order_index}</div>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 pt-2" onClick={(e) => e.stopPropagation()}>
+                      <Button
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => navigate(`/admin/content/sections/${section.id}`)}
+                      >
+                        View Details
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/admin/content/sections/${section.id}/tables`);
+                        }}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          confirmDelete(section);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
-
-        {sections.length === 0 && (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <p className="text-muted-foreground mb-4">No sections yet</p>
-              <Button onClick={() => navigate("/admin/content/sections/new")}>
-                <Plus className="mr-2 h-4 w-4" />
-                Create your first section
-              </Button>
-            </CardContent>
-          </Card>
-        )}
       </div>
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
