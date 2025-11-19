@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface ManualSchemaBuilderProps {
   sectionId: string;
+  tableId?: string; // Optional for edit mode
 }
 
 interface TableForm {
@@ -27,11 +28,13 @@ interface TableForm {
   is_active: boolean;
 }
 
-export function ManualSchemaBuilder({ sectionId }: ManualSchemaBuilderProps) {
+export function ManualSchemaBuilder({ sectionId, tableId }: ManualSchemaBuilderProps) {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(!!tableId);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const isEditMode = !!tableId;
   
   const [formData, setFormData] = useState<TableForm>({
     name: "",
@@ -42,6 +45,45 @@ export function ManualSchemaBuilder({ sectionId }: ManualSchemaBuilderProps) {
     order_index: 0,
     is_active: true,
   });
+
+  // Load existing table data if in edit mode
+  useEffect(() => {
+    if (tableId) {
+      loadTableData();
+    }
+  }, [tableId]);
+
+  const loadTableData = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('admin_content_tables')
+        .select('*')
+        .eq('id', tableId)
+        .single();
+
+      if (error) throw error;
+
+      setFormData({
+        name: data.name,
+        display_name: data.display_name,
+        description: data.description || '',
+        table_name: data.table_name,
+        schema_definition: (data.schema_definition as unknown as SchemaField[]) || [],
+        order_index: data.order_index,
+        is_active: data.is_active,
+      });
+    } catch (error: any) {
+      console.error('Error loading table:', error);
+      toast({
+        title: 'Error loading table',
+        description: error.message,
+        variant: 'destructive',
+      });
+      navigate(`/admin/content/sections/${sectionId}/tables`);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const generateTableName = (name: string) => {
     return name.toLowerCase().replace(/[^a-z0-9]/g, '_');
@@ -176,50 +218,79 @@ export function ManualSchemaBuilder({ sectionId }: ManualSchemaBuilderProps) {
     if (formData.schema_definition.length === 0) {
       toast({
         title: "No fields defined",
-        description: "Please add at least one field to the table schema",
+        description: "Please add at least one field to your schema.",
         variant: "destructive",
       });
       return;
     }
 
     setSaving(true);
-
+    
     try {
-      const sql = generateMigrationSQL();
-      
-      // Call edge function to execute DDL and register table
-      const { data, error } = await supabase.functions.invoke('execute-ddl', {
-        body: {
-          sql,
-          tableMetadata: {
-            section_id: sectionId,
+      if (isEditMode) {
+        // Update existing table
+        const { error } = await supabase
+          .from('admin_content_tables')
+          .update({
             name: formData.name,
             display_name: formData.display_name,
-            description: formData.description,
-            table_name: formData.table_name,
-            schema_definition: formData.schema_definition,
-            order_index: formData.order_index,
+            description: formData.description || null,
+            schema_definition: formData.schema_definition as any,
             is_active: formData.is_active,
-            creation_method: 'manual',
+          })
+          .eq('id', tableId);
+
+        if (error) throw error;
+
+        toast({
+          title: "Table updated",
+          description: `${formData.display_name} has been updated successfully.`,
+        });
+      } else {
+        // Create new table (existing code)
+        const migrationSQL = generateMigrationSQL();
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+
+        const response = await fetch(`${supabaseUrl}/functions/v1/execute-ddl`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
           },
-        },
-      });
+          body: JSON.stringify({
+            sql: migrationSQL,
+            metadata: {
+              section_id: sectionId,
+              name: formData.name,
+              display_name: formData.display_name,
+              description: formData.description || null,
+              table_name: formData.table_name,
+              schema_definition: formData.schema_definition,
+              order_index: formData.order_index,
+              is_active: formData.is_active,
+            },
+          }),
+        });
 
-      if (error) throw error;
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to create table');
+        }
 
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to create table');
+        const result = await response.json();
+        console.log('Table created:', result);
+
+        toast({
+          title: "Table created",
+          description: `${formData.display_name} has been created successfully.`,
+        });
       }
 
-      toast({
-        title: "Table created successfully",
-        description: `Table "${formData.display_name}" has been created and is ready to use`,
-      });
-
-      navigate(`/admin/content/sections/${sectionId}/tables/${data.table.id}`);
+      navigate(`/admin/content/sections/${sectionId}/tables`);
     } catch (error: any) {
+      console.error('Error saving table:', error);
       toast({
-        title: "Error creating table",
+        title: isEditMode ? "Error updating table" : "Error creating table",
         description: error.message,
         variant: "destructive",
       });
