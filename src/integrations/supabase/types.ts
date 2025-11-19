@@ -120,6 +120,7 @@ export type Database = {
           is_active: boolean
           name: string
           order_index: number
+          route_override: string | null
           schema_definition: Json
           section_id: string
           table_name: string
@@ -133,6 +134,7 @@ export type Database = {
           is_active?: boolean
           name: string
           order_index?: number
+          route_override?: string | null
           schema_definition?: Json
           section_id: string
           table_name: string
@@ -146,6 +148,7 @@ export type Database = {
           is_active?: boolean
           name?: string
           order_index?: number
+          route_override?: string | null
           schema_definition?: Json
           section_id?: string
           table_name?: string
