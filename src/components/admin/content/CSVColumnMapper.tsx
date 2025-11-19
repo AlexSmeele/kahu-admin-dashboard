@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
@@ -84,7 +85,9 @@ export const CSVColumnMapper = ({ columns, existingFields, mappings, onMappingCh
       </CardHeader>
       <CardContent>
         <div className="text-sm text-muted-foreground mb-4">Field names: lowercase, numbers, underscores only. Cannot start with number.</div>
-        <Table>
+        <ScrollArea className="h-[600px] w-full">
+          <div className="min-w-max">
+            <Table>
           <TableHeader>
             <TableRow>
               <TableHead className="w-[80px]">Order</TableHead>
@@ -195,6 +198,9 @@ export const CSVColumnMapper = ({ columns, existingFields, mappings, onMappingCh
             })()}
           </TableBody>
         </Table>
+          </div>
+          <ScrollBar orientation="horizontal" />
+        </ScrollArea>
       </CardContent>
     </Card>
   );
