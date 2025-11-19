@@ -142,7 +142,30 @@ export function AdminLayout() {
   useEffect(() => {
     checkAuth();
     fetchDynamicSections();
+    fixMissingRouteOverrides();
   }, []);
+
+  // Fix missing route overrides for custom pages
+  const fixMissingRouteOverrides = async () => {
+    const routeFixes = [
+      { name: 'foundation-modules', route: '/admin/training/modules' },
+      { name: 'troubleshooting_modules', route: '/admin/training/troubleshooting' },
+      { name: 'vaccines', route: '/admin/dogs/vaccines' },
+      { name: 'treatments', route: '/admin/dogs/treatments' },
+    ];
+
+    for (const fix of routeFixes) {
+      const { error } = await supabase
+        .from('admin_content_tables')
+        .update({ route_override: fix.route })
+        .eq('name', fix.name)
+        .is('route_override', null);
+      
+      if (error) {
+        console.error(`Failed to fix route for ${fix.name}:`, error);
+      }
+    }
+  };
 
   const fetchDynamicSections = async () => {
     try {
