@@ -93,8 +93,9 @@ export function CSVPreview({
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <ScrollArea className="h-[400px]">
-          <Table>
+        <ScrollArea className="h-[400px] w-full">
+          <div className="min-w-max">
+            <Table>
             <TableHeader>
               <TableRow>
                 {allFields.map(field => (
@@ -121,6 +122,7 @@ export function CSVPreview({
               ))}
             </TableBody>
           </Table>
+          </div>
         </ScrollArea>
         {data.length > maxRows && (
           <p className="text-sm text-muted-foreground mt-4 text-center">

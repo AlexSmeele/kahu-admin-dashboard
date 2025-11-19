@@ -489,6 +489,8 @@ export function CSVImportBuilder({ sectionId }: CSVImportBuilderProps) {
           mappings={mappings}
           onMappingChange={setMappings}
           mode={importMode}
+          groupedColumns={new Set(columnGroups.flatMap(g => g.sourceColumns))}
+          columnGroups={columnGroups}
         />
 
         <CSVPreview
