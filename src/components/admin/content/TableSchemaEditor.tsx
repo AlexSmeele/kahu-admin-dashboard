@@ -29,6 +29,19 @@ interface SchemaDrift {
   details: string;
 }
 
+interface ForeignKeyConstraint {
+  column_name: string;
+  foreign_table: string;
+  foreign_column: string;
+  constraint_name: string;
+}
+
+interface ColumnConstraint {
+  column_name: string;
+  constraint_type: string;
+  constraint_name: string;
+}
+
 export function TableSchemaEditor() {
   const { sectionId, tableId } = useParams();
   const navigate = useNavigate();
@@ -45,6 +58,8 @@ export function TableSchemaEditor() {
   }>({ warnings: [], canProceed: true });
   const [saving, setSaving] = useState(false);
   const [databaseSchema, setDatabaseSchema] = useState<any[]>([]);
+  const [foreignKeys, setForeignKeys] = useState<ForeignKeyConstraint[]>([]);
+  const [constraints, setConstraints] = useState<ColumnConstraint[]>([]);
   const [schemaDrift, setSchemaDrift] = useState<SchemaDrift[]>([]);
   const [detectingDrift, setDetectingDrift] = useState(false);
   const [showSqlPreview, setShowSqlPreview] = useState(false);
@@ -98,6 +113,8 @@ export function TableSchemaEditor() {
 
       console.log('Database schema from introspection:', data);
       setDatabaseSchema(data?.columns || []);
+      setForeignKeys(data?.foreign_keys || []);
+      setConstraints(data?.constraints || []);
       
     } catch (error: any) {
       console.error("Error loading database schema:", error);
@@ -347,41 +364,170 @@ export function TableSchemaEditor() {
     if (!tableData) return;
 
     const warnings: string[] = [];
-    
-    // Analyze changes for potential data loss
-    changes.forEach(change => {
-      if (change.type === 'delete') {
-        warnings.push(`⚠️ Deleting column "${change.columnName}" will permanently delete all data in that column.`);
-      }
-      if (change.type === 'modify' && change.oldValue && change.newValue) {
-        if (change.oldValue.type !== change.newValue.type) {
-          warnings.push(`⚠️ Type change for "${change.columnName}" from ${change.oldValue.type} to ${change.newValue.type} may result in data loss or conversion errors.`);
-        }
-        if (change.oldValue.nullable && !change.newValue.nullable) {
-          warnings.push(`⚠️ Making "${change.columnName}" NOT NULL may fail if existing rows have NULL values.`);
-        }
-      }
-    });
+    let affectedRows = 0;
+    let hasBlockingIssues = false;
 
-    // Try to get affected row count
-    try {
-      const { count } = await supabase
-        .from(tableData.table_name)
-        .select('*', { count: 'exact', head: true });
-      
-      setMigrationImpact({
-        affectedRows: count || 0,
-        warnings,
-        canProceed: true
-      });
-    } catch (error) {
-      setMigrationImpact({
-        warnings: [...warnings, "⚠️ Could not determine affected row count."],
-        canProceed: true
-      });
+    // Check for destructive changes
+    for (const change of changes) {
+      if (change.type === 'delete') {
+        const columnName = change.columnName;
+        
+        // Check if column has foreign key constraints
+        const fkReferences = foreignKeys.filter(fk => fk.column_name === columnName);
+        if (fkReferences.length > 0) {
+          fkReferences.forEach(fk => {
+            warnings.push(`❌ BLOCKING: Column "${columnName}" has foreign key constraint to ${fk.foreign_table}.${fk.foreign_column} (${fk.constraint_name}). Drop constraint first.`);
+            hasBlockingIssues = true;
+          });
+        }
+
+        // Check for unique/primary key constraints
+        const uniqueConstraints = constraints.filter(c => 
+          c.column_name === columnName && 
+          (c.constraint_type === 'UNIQUE' || c.constraint_type === 'PRIMARY KEY')
+        );
+        if (uniqueConstraints.length > 0) {
+          uniqueConstraints.forEach(c => {
+            warnings.push(`⚠️ WARNING: Column "${columnName}" has ${c.constraint_type} constraint (${c.constraint_name}). This will be dropped.`);
+          });
+        }
+
+        warnings.push(`🗑️ Column "${columnName}" will be permanently deleted with all its data`);
+        
+        // Try to count affected rows (non-null values)
+        try {
+          const { count } = await supabase
+            .from(tableData.table_name)
+            .select('*', { count: 'exact', head: true })
+            .not(columnName, 'is', null);
+          
+          if (count) {
+            affectedRows += count;
+            warnings.push(`📊 ${count} rows have data in this column`);
+          }
+        } catch (error) {
+          console.error('Error counting rows:', error);
+        }
+      } else if (change.type === 'modify') {
+        const oldField = change.oldValue;
+        const newField = change.newValue;
+        const columnName = change.columnName;
+        
+        if (oldField && newField) {
+          // Type change validation
+          if (oldField.type !== newField.type) {
+            warnings.push(`🔄 Column "${columnName}" type changing from ${oldField.type} to ${newField.type}`);
+            
+            // Validate conversion safety
+            const conversionSafe = validateTypeConversionSafety(oldField.type, newField.type);
+            if (!conversionSafe.safe) {
+              warnings.push(`⚠️ WARNING: ${conversionSafe.warning}`);
+              if (conversionSafe.blocking) {
+                hasBlockingIssues = true;
+              }
+            }
+            
+            // Count all rows with data
+            try {
+              const { count } = await supabase
+                .from(tableData.table_name)
+                .select('*', { count: 'exact', head: true })
+                .not(columnName, 'is', null);
+              
+              if (count) {
+                affectedRows += count;
+                warnings.push(`📊 ${count} rows will be affected by type conversion`);
+              }
+            } catch (error) {
+              console.error('Error counting rows:', error);
+            }
+          }
+          
+          // Nullable to NOT NULL validation
+          if (oldField.nullable && !newField.nullable) {
+            warnings.push(`⚠️ Column "${columnName}" will require values (NOT NULL)`);
+            
+            // Check for existing NULL values
+            try {
+              const { count } = await supabase
+                .from(tableData.table_name)
+                .select('*', { count: 'exact', head: true })
+                .is(columnName, null);
+              
+              if (count && count > 0) {
+                warnings.push(`❌ BLOCKING: ${count} rows have NULL values. Cannot add NOT NULL constraint.`);
+                hasBlockingIssues = true;
+              }
+            } catch (error) {
+              console.error('Error counting NULL rows:', error);
+            }
+          }
+
+          // Check if column has foreign key that might be affected
+          const fkReferences = foreignKeys.filter(fk => fk.column_name === columnName);
+          if (fkReferences.length > 0 && oldField.type !== newField.type) {
+            fkReferences.forEach(fk => {
+              warnings.push(`⚠️ Type change affects foreign key: ${fk.constraint_name} → ${fk.foreign_table}.${fk.foreign_column}`);
+            });
+          }
+        }
+      }
     }
 
+    setMigrationImpact({
+      affectedRows,
+      warnings,
+      canProceed: !hasBlockingIssues
+    });
     setShowMigrationPreview(true);
+  };
+
+  const validateTypeConversionSafety = (fromType: string, toType: string): { 
+    safe: boolean; 
+    warning?: string; 
+    blocking?: boolean 
+  } => {
+    // Safe conversions
+    const safePairs = [
+      ['text', 'file_url'],
+      ['text', 'select'],
+      ['number', 'text'],
+      ['boolean', 'text'],
+    ];
+
+    if (safePairs.some(([from, to]) => fromType === from && toType === to)) {
+      return { safe: true };
+    }
+
+    // Potentially lossy conversions
+    if (fromType === 'text' && (toType === 'number' || toType === 'boolean')) {
+      return { 
+        safe: false, 
+        warning: `Converting text to ${toType} may fail if text contains invalid values`,
+        blocking: true 
+      };
+    }
+
+    if (fromType === 'datetime' && toType === 'date') {
+      return { 
+        safe: false, 
+        warning: 'Converting datetime to date will lose time information' 
+      };
+    }
+
+    if ((fromType === 'array' || fromType === 'multiselect') && (toType !== 'array' && toType !== 'multiselect')) {
+      return { 
+        safe: false, 
+        warning: 'Converting array to single value will lose data' ,
+        blocking: true
+      };
+    }
+
+    // Default: potentially unsafe
+    return { 
+      safe: false, 
+      warning: `Type conversion from ${fromType} to ${toType} requires manual verification` 
+    };
   };
 
   const handlePreviewSQL = () => {
@@ -708,14 +854,25 @@ export function TableSchemaEditor() {
               </Alert>
             )}
 
+            {!migrationImpact.canProceed && (
+              <Alert variant="destructive">
+                <AlertDescription className="font-semibold">
+                  ❌ Migration blocked. Resolve blocking issues before proceeding.
+                </AlertDescription>
+              </Alert>
+            )}
+
             <div className="flex gap-2 justify-end">
               <Button variant="outline" onClick={() => setShowMigrationPreview(false)}>
                 Cancel
               </Button>
-              <Button onClick={() => {
-                setShowMigrationPreview(false);
-                handleSaveChanges();
-              }}>
+              <Button 
+                onClick={() => {
+                  setShowMigrationPreview(false);
+                  handleSaveChanges();
+                }}
+                disabled={!migrationImpact.canProceed}
+              >
                 Proceed with Migration
               </Button>
             </div>
