@@ -5,8 +5,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { ChevronDown, ChevronUp, Trash2, GripVertical } from "lucide-react";
+import { ChevronDown, ChevronUp, Trash2, GripVertical, Edit2 } from "lucide-react";
 import { SchemaField } from "./SchemaFieldEditor";
+import { ColumnRenameDialog } from "./ColumnRenameDialog";
 
 interface SchemaChange {
   type: 'add' | 'modify' | 'delete' | 'rename';
@@ -25,6 +26,7 @@ interface TableSchemaRowProps {
   onDelete: () => void;
   onMoveUp: () => void;
   onMoveDown: () => void;
+  onRename?: (newName: string) => void;
   canMoveUp: boolean;
   canMoveDown: boolean;
 }
@@ -50,10 +52,12 @@ export function TableSchemaRow({
   onDelete,
   onMoveUp,
   onMoveDown,
+  onRename,
   canMoveUp,
   canMoveDown,
 }: TableSchemaRowProps) {
   const [expanded, setExpanded] = useState(false);
+  const [showRenameDialog, setShowRenameDialog] = useState(false);
 
   const updateField = (updates: Partial<SchemaField>) => {
     onUpdate({ ...field, ...updates });
@@ -109,12 +113,26 @@ export function TableSchemaRow({
         <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
             <Label className="text-xs text-muted-foreground">Column Name</Label>
-            <Input
-              value={field.name}
-              onChange={(e) => updateField({ name: e.target.value })}
-              className="h-9"
-              placeholder="column_name"
-            />
+            <div className="flex gap-2">
+              <Input
+                value={field.name}
+                onChange={(e) => updateField({ name: e.target.value })}
+                className="h-9"
+                placeholder="column_name"
+              />
+              {onRename && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9"
+                  onClick={() => setShowRenameDialog(true)}
+                  type="button"
+                  title="Rename column in database"
+                >
+                  <Edit2 className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
           </div>
 
           <div>
@@ -211,6 +229,15 @@ export function TableSchemaRow({
             />
           </div>
         </div>
+      )}
+
+      {onRename && (
+        <ColumnRenameDialog
+          open={showRenameDialog}
+          onOpenChange={setShowRenameDialog}
+          currentName={field.name}
+          onRename={onRename}
+        />
       )}
     </div>
   );

@@ -5,12 +5,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { ArrowLeft, Plus, Eye, Save, AlertCircle, RefreshCw } from "lucide-react";
+import { ArrowLeft, Plus, Eye, Save, AlertCircle, RefreshCw, History, Database } from "lucide-react";
 import { SchemaField } from "./SchemaFieldEditor";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { TableSchemaRow } from "./TableSchemaRow";
+import { SampleDataPreview } from "./SampleDataPreview";
+import { MigrationHistoryDialog } from "./MigrationHistoryDialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 
 interface SchemaChange {
   type: 'add' | 'modify' | 'delete' | 'rename';
@@ -64,6 +68,8 @@ export function TableSchemaEditor() {
   const [detectingDrift, setDetectingDrift] = useState(false);
   const [showSqlPreview, setShowSqlPreview] = useState(false);
   const [generatedSql, setGeneratedSql] = useState("");
+  const [showHistoryDialog, setShowHistoryDialog] = useState(false);
+  const [useCopyStrategy, setUseCopyStrategy] = useState(false);
 
   useEffect(() => {
     loadTableSchema();
@@ -273,6 +279,11 @@ export function TableSchemaEditor() {
 
     changes.forEach(change => {
       switch (change.type) {
+        case 'rename':
+          if (change.oldValue && change.newValue) {
+            sql += `ALTER TABLE ${tableName}\n  RENAME COLUMN ${change.oldValue.name} TO ${change.newValue.name};\n\n`;
+          }
+          break;
         case 'add':
           if (change.newValue) {
             const pgType = mapFieldTypeToPostgres(change.newValue.type);
@@ -536,7 +547,7 @@ export function TableSchemaEditor() {
     setShowSqlPreview(true);
   };
 
-  const validateTypeConversion = async (change: SchemaChange): Promise<{ valid: boolean; error?: string }> => {
+  const validateTypeConversion = async (change: SchemaChange): Promise<{ valid: boolean; error?: string; testResults?: any }> => {
     if (!tableData || change.type !== 'modify' || !change.oldValue || !change.newValue) {
       return { valid: true };
     }
@@ -551,19 +562,66 @@ export function TableSchemaEditor() {
 
     try {
       // Test conversion on actual data with a sample query
-      const testQuery = `
-        SELECT COUNT(*) as total_rows,
-               COUNT(CASE WHEN ${columnName} IS NOT NULL THEN 1 END) as non_null_rows,
-               COUNT(CASE WHEN ${columnName}::${targetType} IS NOT NULL THEN 1 END) as convertible_rows
-        FROM ${tableName}
-      `;
+      const { data: sampleData, error: sampleError } = await (supabase as any)
+        .from(tableName)
+        .select(columnName)
+        .limit(100);
 
-      // Note: This would require a safe query function - for now, just return valid
-      return { valid: true };
+      if (sampleError) {
+        return { valid: false, error: `Failed to fetch sample data: ${sampleError.message}` };
+      }
+
+      // Analyze sample data for conversion viability
+      const testResults = {
+        totalRows: sampleData?.length || 0,
+        nullCount: 0,
+        conversionErrors: [] as string[],
+      };
+
+      sampleData?.forEach((row: any, idx: number) => {
+        const value = row[columnName];
+        if (value === null || value === undefined) {
+          testResults.nullCount++;
+          return;
+        }
+
+        // Test conversion based on type
+        try {
+          if (change.newValue.type === 'number') {
+            const num = Number(value);
+            if (isNaN(num)) {
+              testResults.conversionErrors.push(`Row ${idx + 1}: "${value}" cannot convert to number`);
+            }
+          } else if (change.newValue.type === 'boolean') {
+            if (typeof value !== 'boolean' && !['true', 'false', '1', '0'].includes(String(value).toLowerCase())) {
+              testResults.conversionErrors.push(`Row ${idx + 1}: "${value}" cannot convert to boolean`);
+            }
+          } else if (change.newValue.type === 'date' || change.newValue.type === 'datetime') {
+            const date = new Date(value);
+            if (isNaN(date.getTime())) {
+              testResults.conversionErrors.push(`Row ${idx + 1}: "${value}" cannot convert to date`);
+            }
+          }
+        } catch (err) {
+          testResults.conversionErrors.push(`Row ${idx + 1}: Unexpected error testing value "${value}"`);
+        }
+      });
+
+      // If more than 10% of rows fail conversion, block the migration
+      const errorRate = testResults.totalRows > 0 ? testResults.conversionErrors.length / testResults.totalRows : 0;
+      if (errorRate > 0.1 || testResults.conversionErrors.length > 0) {
+        return {
+          valid: false,
+          error: `Type conversion testing failed: ${testResults.conversionErrors.length} out of ${testResults.totalRows} rows cannot be converted. First errors: ${testResults.conversionErrors.slice(0, 3).join('; ')}`,
+          testResults,
+        };
+      }
+
+      return { valid: true, testResults };
     } catch (error: any) {
-      return { 
-        valid: false, 
-        error: `Type conversion validation failed: ${error.message}` 
+      return {
+        valid: false,
+        error: `Type conversion validation failed: ${error.message}`,
       };
     }
   };
@@ -617,6 +675,23 @@ export function TableSchemaEditor() {
 
       console.log('DDL execution successful:', ddlResult);
 
+      // Log migration to history
+      try {
+        const { data: userData } = await supabase.auth.getUser();
+        await supabase.from('schema_migration_history').insert([{
+          table_id: tableId as string,
+          table_name: tableData.table_name,
+          migration_type: 'schema_modification',
+          changes: changes as any,
+          sql_executed: sql,
+          executed_by: userData.user?.id || null,
+          success: true,
+          affected_rows: null,
+        }]);
+      } catch (historyError) {
+        console.warn('Failed to log migration history:', historyError);
+      }
+
       // Update schema_definition in admin_content_tables
       const { error: updateError } = await supabase
         .from('admin_content_tables')
@@ -650,6 +725,44 @@ export function TableSchemaEditor() {
       rename: <Badge variant="default" className="bg-purple-500">Renamed</Badge>,
     };
     return badges[type];
+  };
+
+  const handleColumnRename = (oldName: string, newName: string) => {
+    // Find the field to rename
+    const fieldIndex = fields.findIndex(f => f.name === oldName);
+    if (fieldIndex === -1) return;
+
+    // Update the field name
+    const updatedFields = [...fields];
+    updatedFields[fieldIndex] = { ...updatedFields[fieldIndex], name: newName };
+    setFields(updatedFields);
+
+    // Add a rename change
+    const existingChangeIndex = changes.findIndex(c => c.columnName === oldName);
+    if (existingChangeIndex >= 0) {
+      // Update existing change
+      const updatedChanges = [...changes];
+      updatedChanges[existingChangeIndex] = {
+        ...updatedChanges[existingChangeIndex],
+        type: 'rename',
+        columnName: newName,
+        requiresMigration: true,
+        migrationSQL: `ALTER TABLE ${tableData.table_name} RENAME COLUMN ${oldName} TO ${newName};`,
+      };
+      setChanges(updatedChanges);
+    } else {
+      // Add new rename change
+      setChanges([...changes, {
+        type: 'rename',
+        columnName: newName,
+        oldValue: { ...fields[fieldIndex], name: oldName },
+        newValue: { ...fields[fieldIndex], name: newName },
+        requiresMigration: true,
+        migrationSQL: `ALTER TABLE ${tableData.table_name} RENAME COLUMN ${oldName} TO ${newName};`,
+      }]);
+    }
+
+    toast.success(`Column will be renamed from "${oldName}" to "${newName}"`);
   };
 
   const getDriftTypeBadge = (type: SchemaDrift['type']) => {
@@ -749,6 +862,7 @@ export function TableSchemaEditor() {
                   onDelete={() => handleDeleteField(index)}
                   onMoveUp={() => handleMoveField(index, 'up')}
                   onMoveDown={() => handleMoveField(index, 'down')}
+                  onRename={(newName) => handleColumnRename(field.name, newName)}
                   canMoveUp={index > 0}
                   canMoveDown={index < fields.length - 1}
                 />
@@ -766,6 +880,12 @@ export function TableSchemaEditor() {
           </Button>
         </CardContent>
       </Card>
+
+      {tableData && (
+        <div className="mb-6">
+          <SampleDataPreview tableName={tableData.table_name} limit={5} />
+        </div>
+      )}
 
       <div className="flex gap-3 flex-wrap">
         <Button
@@ -791,6 +911,13 @@ export function TableSchemaEditor() {
         >
           <Eye className="h-4 w-4 mr-2" />
           Preview SQL
+        </Button>
+        <Button
+          variant="outline"
+          onClick={() => setShowHistoryDialog(true)}
+        >
+          <History className="h-4 w-4 mr-2" />
+          Migration History
         </Button>
         <Button
           onClick={handleSaveChanges}
@@ -862,11 +989,22 @@ export function TableSchemaEditor() {
               </Alert>
             )}
 
+            <div className="flex items-center gap-2 p-4 border rounded">
+              <Checkbox 
+                id="useCopyStrategy" 
+                checked={useCopyStrategy}
+                onCheckedChange={(checked) => setUseCopyStrategy(checked === true)}
+              />
+              <Label htmlFor="useCopyStrategy" className="cursor-pointer">
+                Use copy-to-new-column strategy for risky type conversions (safer but requires manual cleanup)
+              </Label>
+            </div>
+
             <div className="flex gap-2 justify-end">
               <Button variant="outline" onClick={() => setShowMigrationPreview(false)}>
                 Cancel
               </Button>
-              <Button 
+              <Button
                 onClick={() => {
                   setShowMigrationPreview(false);
                   handleSaveChanges();
@@ -879,6 +1017,12 @@ export function TableSchemaEditor() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <MigrationHistoryDialog
+        open={showHistoryDialog}
+        onOpenChange={setShowHistoryDialog}
+        tableId={tableId as string}
+      />
     </div>
   );
 }
