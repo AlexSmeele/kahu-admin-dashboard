@@ -188,9 +188,10 @@ Deno.serve(async (req) => {
     if (tableMetadata) {
       console.log('Registering table metadata:', tableMetadata);
       
-      const { data: insertData, error: insertError } = await supabase
+      // Use upsert to handle case where table already exists in registry
+      const { data: upsertData, error: upsertError } = await supabase
         .from('admin_content_tables')
-        .insert({
+        .upsert({
           section_id: tableMetadata.section_id,
           name: tableMetadata.name,
           display_name: tableMetadata.display_name,
@@ -199,16 +200,19 @@ Deno.serve(async (req) => {
           schema_definition: tableMetadata.schema_definition,
           order_index: tableMetadata.order_index,
           is_active: tableMetadata.is_active,
+        }, {
+          onConflict: 'name',
+          ignoreDuplicates: false
         })
         .select()
         .single();
 
-      if (insertError) {
-        console.error('Table metadata insert error:', insertError);
-        throw new Error(`Failed to register table: ${insertError.message}`);
+      if (upsertError) {
+        console.error('Table metadata upsert error:', upsertError);
+        throw new Error(`Failed to register table: ${upsertError.message}`);
       }
 
-      tableRecord = insertData;
+      tableRecord = upsertData;
     }
 
     return new Response(
