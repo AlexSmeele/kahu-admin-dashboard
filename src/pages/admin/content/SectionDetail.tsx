@@ -281,48 +281,75 @@ export default function SectionDetail() {
           ) : (
             <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
               {tables.map((table) => (
-                <Card key={table.id} className="group hover:shadow-lg hover:border-primary/20 transition-all duration-200">
-                  <CardHeader className="pb-4">
-                    <div className="flex items-start justify-between gap-2">
-                      <CardTitle className="flex items-center gap-2 text-lg">
-                        <div className="p-2 rounded-lg bg-primary/10 text-primary">
-                          <TableIcon className="h-4 w-4" />
+                <Card key={table.id} className="group hover:shadow-lg hover:border-primary/20 transition-all duration-200 overflow-hidden">
+                  {/* Header with Icon and Status */}
+                  <div className="relative bg-gradient-to-br from-primary/5 to-primary/10 px-6 pt-6 pb-4">
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <div className="p-3 rounded-xl bg-background shadow-sm border">
+                          <TableIcon className="h-5 w-5 text-primary" />
                         </div>
-                        <span className="line-clamp-1">{table.display_name}</span>
-                      </CardTitle>
-                      <Badge variant={table.is_active ? "default" : "secondary"} className="shrink-0">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-lg font-semibold leading-tight line-clamp-2 mb-1">
+                            {table.display_name}
+                          </h3>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <span className="px-2 py-0.5 rounded-md bg-muted font-mono">
+                              #{table.order_index}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <Badge 
+                        variant={table.is_active ? "default" : "secondary"} 
+                        className="shrink-0 shadow-sm"
+                      >
                         {table.is_active ? "Active" : "Inactive"}
                       </Badge>
                     </div>
                     {table.description && (
-                      <CardDescription className="line-clamp-2 mt-2">
+                      <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">
                         {table.description}
-                      </CardDescription>
+                      </p>
                     )}
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-2 gap-3 p-3 rounded-lg bg-muted/50 text-sm">
-                      <div>
-                        <div className="text-muted-foreground mb-1">Table</div>
-                        <code className="text-xs font-mono bg-background px-2 py-1 rounded border">
+                  </div>
+
+                  <CardContent className="space-y-4 p-6">
+                    {/* Metadata Grid */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                          Table Name
+                        </div>
+                        <code className="block text-xs font-mono bg-muted px-2.5 py-1.5 rounded border text-foreground break-all">
                           {table.table_name}
                         </code>
                       </div>
-                      <div>
-                        <div className="text-muted-foreground mb-1">Fields</div>
-                        <div className="font-semibold">{(table.schema_definition as any[]).length}</div>
+                      <div className="space-y-1.5">
+                        <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                          Fields
+                        </div>
+                        <div className="flex items-center gap-2 px-2.5 py-1.5 bg-muted rounded border">
+                          <span className="text-2xl font-bold text-foreground">
+                            {(table.schema_definition as any[]).length}
+                          </span>
+                          <span className="text-xs text-muted-foreground">fields</span>
+                        </div>
                       </div>
                     </div>
+
+                    {/* Action Buttons */}
                     <div className="flex flex-col gap-2 pt-2">
                       <Button 
-                        size="sm" 
-                        className="w-full"
+                        size="default" 
+                        className="w-full shadow-sm"
                         onClick={() => navigate(`/admin/content/sections/${sectionId}/tables/${table.id}/records`)}
                       >
+                        <TableIcon className="h-4 w-4 mr-2" />
                         Manage Data
                       </Button>
                       <Button 
-                        size="sm" 
+                        size="default" 
                         variant="outline" 
                         className="w-full"
                         onClick={() => navigate(`/admin/content/sections/${sectionId}/tables/${table.id}/edit`)}
