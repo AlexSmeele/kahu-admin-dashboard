@@ -80,6 +80,7 @@ export function TableSchemaEditor() {
   const [isMigrating, setIsMigrating] = useState(false);
   const [batchStatus, setBatchStatus] = useState<Array<{ batch: number; success: boolean; error?: string; rowsProcessed: number }>>([]);
   const [columnIndexes, setColumnIndexes] = useState<Array<{ indexName: string; columnName: string; indexDef: string }>>([]);
+  const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
     loadTableSchema();
@@ -163,6 +164,79 @@ export function TableSchemaEditor() {
     } catch (error: any) {
       console.warn("Could not load indexes:", error);
       // Non-critical, continue without index information
+    }
+  };
+
+  const mapPostgreSQLType = (pgType: string): string => {
+    const typeMap: Record<string, string> = {
+      'text': 'text',
+      'character varying': 'text',
+      'varchar': 'text',
+      'integer': 'number',
+      'bigint': 'number',
+      'numeric': 'number',
+      'real': 'number',
+      'double precision': 'number',
+      'boolean': 'boolean',
+      'date': 'date',
+      'timestamp with time zone': 'datetime',
+      'timestamp without time zone': 'datetime',
+      'time': 'time',
+      'uuid': 'text',
+      'jsonb': 'json',
+      'json': 'json',
+      'text[]': 'array',
+      'integer[]': 'array',
+    };
+    return typeMap[pgType.toLowerCase()] || 'text';
+  };
+
+  const syncFromDatabase = async () => {
+    if (!tableData) return;
+    
+    setSyncing(true);
+    try {
+      const { data: introspectData, error: introspectError } = await supabase.functions.invoke('introspect-schema', {
+        body: { tableName: tableData.table_name }
+      });
+
+      if (introspectError) throw introspectError;
+      if (!introspectData?.columns) throw new Error("No columns returned from introspection");
+
+      const schemaFields: SchemaField[] = introspectData.columns.map((col: any, index: number) => ({
+        id: crypto.randomUUID(),
+        name: col.column_name,
+        label: col.column_name.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
+        type: mapPostgreSQLType(col.data_type),
+        nullable: col.is_nullable === 'YES',
+        required: col.is_nullable === 'NO',
+        unique: false,
+        defaultValue: col.column_default || '',
+        description: '',
+        order: index,
+      }));
+
+      setFields(schemaFields);
+      setOriginalFields(JSON.parse(JSON.stringify(schemaFields)));
+
+      // Save to database
+      const { error: updateError } = await supabase
+        .from('admin_content_tables')
+        .update({ schema_definition: schemaFields as any })
+        .eq('id', tableId);
+
+      if (updateError) throw updateError;
+
+      toast.success(`Synced ${schemaFields.length} columns from database table "${tableData.table_name}"`, {
+        description: "Schema definition has been populated and saved."
+      });
+    } catch (error: any) {
+      console.error("Error syncing schema:", error);
+      toast.error("Failed to sync schema from database", {
+        description: error.message
+      });
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -1390,12 +1464,44 @@ export function TableSchemaEditor() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Alert className="mb-4 bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-900">
-            <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-            <AlertDescription className="text-sm text-blue-800 dark:text-blue-300">
-              <strong>Editing columns:</strong> All fields are editable. Changes are tracked and validated before applying to the database.
-            </AlertDescription>
-          </Alert>
+          {fields.length === 0 ? (
+            <Alert className="mb-4 bg-yellow-50 border-yellow-200 dark:bg-yellow-950/20 dark:border-yellow-900">
+              <Database className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+              <AlertDescription className="text-sm text-yellow-800 dark:text-yellow-300">
+                <strong>No schema definition found.</strong> This table exists in the database but has no field definitions in the Content Manager.
+                <div className="mt-2">
+                  <Button 
+                    onClick={syncFromDatabase} 
+                    disabled={syncing}
+                    size="sm"
+                    className="mr-2"
+                  >
+                    {syncing ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        Syncing...
+                      </>
+                    ) : (
+                      <>
+                        <Database className="h-4 w-4 mr-2" />
+                        Sync Schema from Database
+                      </>
+                    )}
+                  </Button>
+                  <span className="text-xs text-muted-foreground">
+                    Automatically detect and populate columns from the "{tableData?.table_name}" table
+                  </span>
+                </div>
+              </AlertDescription>
+            </Alert>
+          ) : (
+            <Alert className="mb-4 bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-900">
+              <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              <AlertDescription className="text-sm text-blue-800 dark:text-blue-300">
+                <strong>Editing columns:</strong> All fields are editable. Changes are tracked and validated before applying to the database.
+              </AlertDescription>
+            </Alert>
+          )}
           
           <div className="space-y-2">
             {fields.map((field, index) => {
