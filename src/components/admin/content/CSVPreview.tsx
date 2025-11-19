@@ -36,23 +36,30 @@ export function CSVPreview({ data, mappings, columnGroups, maxRows = 5 }: CSVPre
     return transformed;
   });
   
-  const groupFields = columnGroups.map(g => ({ 
-    name: g.targetField, 
-    type: 'json' 
-  }));
-  
-  const ungroupedFields = mappings
-    .filter(m => 
-      m.targetField && 
-      !groupedColumns.has(m.csvColumn) && 
-      !m.isGrouped
-    )
-    .map(m => ({ 
-      name: m.targetField, 
-      type: m.dataType 
-    }));
-  
-  const allFields = [...groupFields, ...ungroupedFields];
+  // Build allFields in the same order as mappings
+  const allFields: { name: string; type: string }[] = [];
+  const processedGroups = new Set<string>();
+
+  mappings.forEach(mapping => {
+    // Check if this mapping is part of a group
+    const group = columnGroups.find(g => g.sourceColumns.includes(mapping.csvColumn));
+    
+    if (group && !processedGroups.has(group.targetField)) {
+      // First time encountering this group - add the group field
+      allFields.push({
+        name: group.targetField,
+        type: 'json'
+      });
+      processedGroups.add(group.targetField);
+    } else if (!group && mapping.targetField && !mapping.isGrouped) {
+      // Ungrouped mapping - add it directly
+      allFields.push({
+        name: mapping.targetField,
+        type: mapping.dataType
+      });
+    }
+    // Skip if it's a grouped column that's not the first in its group
+  });
   const renderValue = (value: any, type: string) => {
     if (value === null || value === undefined || value === '') return <span className="text-muted-foreground italic">null</span>;
     if (type === 'json' || Array.isArray(value)) return <Badge variant="outline" className="font-mono text-xs max-w-[200px] truncate">{JSON.stringify(value)}</Badge>;
