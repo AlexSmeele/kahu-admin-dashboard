@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Table as TableIcon, Upload, Plus, Edit, Trash2 } from "lucide-react";
+import { ArrowLeft, Table as TableIcon, Upload, Plus, Edit, Trash2, ArrowUpDown } from "lucide-react";
 import { IconPicker } from "@/components/admin/content/IconPicker";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +21,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { TableReorderDialog } from "@/components/admin/content/TableReorderDialog";
 
 export default function SectionDetail() {
   const { sectionId } = useParams();
@@ -32,6 +33,7 @@ export default function SectionDetail() {
   const [editedSection, setEditedSection] = useState<any>(null);
   const [firstDeleteDialogOpen, setFirstDeleteDialogOpen] = useState(false);
   const [secondDeleteDialogOpen, setSecondDeleteDialogOpen] = useState(false);
+  const [reorderDialogOpen, setReorderDialogOpen] = useState(false);
 
   useEffect(() => {
     fetchSectionAndTables();
@@ -247,6 +249,17 @@ export default function SectionDetail() {
               Content Tables
               <span className="ml-2 text-muted-foreground font-normal">({tables.length})</span>
             </h2>
+            {tables.length > 0 && (
+              <Button 
+                onClick={() => setReorderDialogOpen(true)} 
+                variant="outline" 
+                size="sm"
+                className="gap-2"
+              >
+                <ArrowUpDown className="h-4 w-4" />
+                Reorder Tables
+              </Button>
+            )}
           </div>
 
           {tables.length === 0 ? (
@@ -363,6 +376,13 @@ export default function SectionDetail() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <TableReorderDialog
+        open={reorderDialogOpen}
+        onOpenChange={setReorderDialogOpen}
+        onReorderComplete={fetchSectionAndTables}
+        sectionId={sectionId as string}
+      />
     </div>
   );
 }
