@@ -50,16 +50,26 @@ export function ExistingTableSelector({
     try {
       console.log('Fetching all database tables...');
       
+      // Check authentication first
+      const { data: { user } } = await supabase.auth.getUser();
+      console.log('Current user:', user?.id);
+      
       const { data, error } = await supabase.functions.invoke('list-tables');
 
-      if (error) throw error;
+      console.log('Edge function response:', { data, error });
+
+      if (error) {
+        console.error('Edge function error:', error);
+        throw error;
+      }
 
       if (data?.error) {
+        console.error('Data error:', data.error);
         throw new Error(data.error);
       }
 
-      console.log('Database tables fetched:', data);
-      setTables(data.tables || []);
+      console.log('Database tables fetched:', data?.tables?.length, 'tables');
+      setTables(data?.tables || []);
     } catch (error) {
       console.error('Error fetching tables:', error);
       toast({
