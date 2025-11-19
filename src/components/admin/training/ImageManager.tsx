@@ -81,6 +81,25 @@ export function ImageManager({ images, onChange, editing, skillId }: ImageManage
         tags: [],
       };
 
+      // Insert into media_assets table for the Media Library
+      const { error: insertError } = await supabase
+        .from("media_assets")
+        .insert({
+          title: `Skill Image ${images.length + 1}`,
+          description: `Image for skill ID: ${skillId}`,
+          media_type: "image",
+          file_path: filePath,
+          file_url: publicUrl,
+          tags: [],
+          file_size_bytes: file.size,
+          mime_type: file.type,
+        });
+
+      if (insertError) {
+        console.error("Error creating media_assets record:", insertError);
+        // Don't throw - continue with the image upload even if media_assets fails
+      }
+
       onChange([...images, newImage]);
       toast.success("Image uploaded successfully");
     } catch (error) {
@@ -104,6 +123,12 @@ export function ImageManager({ images, onChange, editing, skillId }: ImageManage
       if (urlParts.length > 1) {
         const filePath = urlParts[1];
         await supabase.storage.from("media-assets").remove([filePath]);
+        
+        // Also delete from media_assets table
+        await supabase
+          .from("media_assets")
+          .delete()
+          .eq("file_path", `skills/${filePath}`);
       }
     } catch (error) {
       console.error("Error deleting image from storage:", error);

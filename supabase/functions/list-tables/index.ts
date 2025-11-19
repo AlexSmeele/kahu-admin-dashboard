@@ -34,11 +34,18 @@ serve(async (req) => {
     }
 
     // Check if user has admin role
-    const { data: hasAdminRole, error: roleError } = await supabaseClient.rpc('has_role', { role_name: 'admin' });
+    console.log('Checking admin role for user:', user.id);
+    const { data: hasAdminRole, error: roleError } = await supabaseClient.rpc('has_role', { 
+      _user_id: user.id, 
+      _role: 'admin' 
+    });
+    
+    console.log('Role check result:', { hasAdminRole, roleError });
     
     if (roleError || !hasAdminRole) {
+      console.error('Admin access denied:', { roleError, hasAdminRole });
       return new Response(
-        JSON.stringify({ error: 'Forbidden: Admin access required' }),
+        JSON.stringify({ error: 'Forbidden: Admin access required', details: roleError?.message }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
