@@ -15,6 +15,7 @@ import { SampleDataPreview } from "./SampleDataPreview";
 import { MigrationHistoryDialog } from "./MigrationHistoryDialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 interface SchemaChange {
   type: 'add' | 'modify' | 'delete' | 'rename';
@@ -70,6 +71,7 @@ export function TableSchemaEditor() {
   const [generatedSql, setGeneratedSql] = useState("");
   const [showHistoryDialog, setShowHistoryDialog] = useState(false);
   const [useCopyStrategy, setUseCopyStrategy] = useState(false);
+  const [customTransformations, setCustomTransformations] = useState<Record<string, string>>({});
 
   useEffect(() => {
     loadTableSchema();
@@ -296,15 +298,56 @@ export function TableSchemaEditor() {
 
         case 'modify':
           if (change.oldValue && change.newValue) {
+            // Handle type changes
             if (change.oldValue.type !== change.newValue.type) {
               const pgType = mapFieldTypeToPostgres(change.newValue.type);
-              sql += `-- WARNING: Type change may require data migration\n`;
-              sql += `ALTER TABLE ${tableName}\n  ALTER COLUMN ${change.columnName} TYPE ${pgType} USING ${change.columnName}::${pgType};\n\n`;
+              
+              if (useCopyStrategy) {
+                // Safe copy-to-new-column strategy
+                const tempColName = `${change.columnName}_new`;
+                sql += `-- Safe migration strategy: copy-to-new-column\n`;
+                sql += `-- Step 1: Create new column with target type\n`;
+                sql += `ALTER TABLE ${tableName}\n  ADD COLUMN ${tempColName} ${pgType};\n\n`;
+                
+                // Use custom transformation SQL if provided, otherwise default CAST
+                const customSQL = customTransformations[change.columnName];
+                if (customSQL) {
+                  sql += `-- Step 2: Transform data using custom SQL\n`;
+                  sql += `UPDATE ${tableName}\n  SET ${tempColName} = ${customSQL};\n\n`;
+                } else {
+                  sql += `-- Step 2: Copy and transform data\n`;
+                  sql += `UPDATE ${tableName}\n  SET ${tempColName} = ${change.columnName}::${pgType};\n\n`;
+                }
+                
+                sql += `-- Step 3: Verify data integrity (check row count)\n`;
+                sql += `-- SELECT COUNT(*) FROM ${tableName} WHERE ${tempColName} IS NOT NULL;\n\n`;
+                
+                sql += `-- Step 4: Drop old column\n`;
+                sql += `ALTER TABLE ${tableName}\n  DROP COLUMN ${change.columnName};\n\n`;
+                
+                sql += `-- Step 5: Rename new column to original name\n`;
+                sql += `ALTER TABLE ${tableName}\n  RENAME COLUMN ${tempColName} TO ${change.columnName};\n\n`;
+              } else {
+                // Direct type conversion
+                sql += `-- WARNING: Type change may require data migration\n`;
+                const customSQL = customTransformations[change.columnName];
+                if (customSQL) {
+                  sql += `-- Using custom transformation\n`;
+                  sql += `UPDATE ${tableName}\n  SET ${change.columnName} = ${customSQL};\n\n`;
+                  sql += `ALTER TABLE ${tableName}\n  ALTER COLUMN ${change.columnName} TYPE ${pgType};\n\n`;
+                } else {
+                  sql += `ALTER TABLE ${tableName}\n  ALTER COLUMN ${change.columnName} TYPE ${pgType} USING ${change.columnName}::${pgType};\n\n`;
+                }
+              }
             }
+            
+            // Handle nullable changes
             if (change.oldValue.nullable !== change.newValue.nullable) {
               const action = change.newValue.nullable ? 'DROP NOT NULL' : 'SET NOT NULL';
               sql += `ALTER TABLE ${tableName}\n  ALTER COLUMN ${change.columnName} ${action};\n\n`;
             }
+            
+            // Handle unique constraint changes
             if (change.oldValue.unique !== change.newValue.unique) {
               if (change.newValue.unique) {
                 sql += `ALTER TABLE ${tableName}\n  ADD CONSTRAINT ${tableName}_${change.columnName}_unique UNIQUE (${change.columnName});\n\n`;
@@ -996,9 +1039,38 @@ export function TableSchemaEditor() {
                 onCheckedChange={(checked) => setUseCopyStrategy(checked === true)}
               />
               <Label htmlFor="useCopyStrategy" className="cursor-pointer">
-                Use copy-to-new-column strategy for risky type conversions (safer but requires manual cleanup)
+                Use copy-to-new-column strategy for risky type conversions (safer, allows data verification)
               </Label>
             </div>
+
+            {changes.some(c => c.type === 'modify' && c.oldValue?.type !== c.newValue?.type) && (
+              <div className="space-y-3">
+                <h4 className="font-semibold text-sm">Custom Transformation SQL</h4>
+                <p className="text-sm text-muted-foreground">
+                  Provide custom SQL expressions for type conversions. Use the column name directly (e.g., <code className="bg-muted px-1 py-0.5 rounded">CASE WHEN column_name = 'value' THEN 1 ELSE 0 END</code>).
+                </p>
+                {changes
+                  .filter(c => c.type === 'modify' && c.oldValue?.type !== c.newValue?.type)
+                  .map(change => (
+                    <div key={change.columnName} className="space-y-2">
+                      <Label htmlFor={`transform-${change.columnName}`} className="text-sm font-medium">
+                        {change.columnName}: {change.oldValue?.type} → {change.newValue?.type}
+                      </Label>
+                      <Textarea
+                        id={`transform-${change.columnName}`}
+                        placeholder={`Default: ${change.columnName}::${mapFieldTypeToPostgres(change.newValue?.type || '')}`}
+                        value={customTransformations[change.columnName] || ''}
+                        onChange={(e) => setCustomTransformations(prev => ({
+                          ...prev,
+                          [change.columnName]: e.target.value
+                        }))}
+                        className="font-mono text-sm"
+                        rows={2}
+                      />
+                    </div>
+                  ))}
+              </div>
+            )}
 
             <div className="flex gap-2 justify-end">
               <Button variant="outline" onClick={() => setShowMigrationPreview(false)}>
