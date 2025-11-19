@@ -117,8 +117,9 @@ export function TableSchemaRow({
               <Input
                 value={field.name}
                 onChange={(e) => updateField({ name: e.target.value })}
-                className="h-9"
+                className="h-9 hover:border-primary/50 transition-colors"
                 placeholder="column_name"
+                title="Click to edit column name"
               />
               {onRename && (
                 <Button
