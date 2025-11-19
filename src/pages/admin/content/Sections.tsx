@@ -121,16 +121,15 @@ export default function Sections() {
                   </div>
                   <div className="flex gap-1">
                     <Button
-                      variant="ghost"
                       size="sm"
-                      onClick={() => navigate(`/admin/content/sections/${section.id}/tables`)}
+                      onClick={() => navigate(`/admin/content/sections/${section.id}`)}
                     >
-                      Manage Tables
+                      View Details
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => navigate(`/admin/content/sections/${section.id}`)}
+                      onClick={() => navigate(`/admin/content/sections/${section.id}/tables`)}
                     >
                       <Pencil className="h-4 w-4" />
                     </Button>
