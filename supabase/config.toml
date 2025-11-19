@@ -1,1 +1,7 @@
 project_id = "bhkqdxhyceflfesxrztm"
+
+[functions.execute-ddl]
+verify_jwt = true
+
+[functions.introspect-schema]
+verify_jwt = true

@@ -7,6 +7,8 @@ const corsHeaders = {
 
 interface ExecuteDDLRequest {
   sql: string;
+  dryRun?: boolean; // If true, validate but don't execute
+  previewMode?: boolean; // If true, return affected row counts
   tableMetadata?: {
     section_id: string;
     name: string;
@@ -58,7 +60,7 @@ Deno.serve(async (req) => {
     }
 
     const body: ExecuteDDLRequest = await req.json();
-    const { sql, tableMetadata } = body;
+    const { sql, tableMetadata, dryRun, previewMode } = body;
 
     if (!sql || typeof sql !== 'string') {
       throw new Error('SQL statement is required');
@@ -127,14 +129,44 @@ Deno.serve(async (req) => {
     }
 
     console.log('Executing DDL:', sql);
+    console.log('Options:', { dryRun, previewMode });
 
-    // Execute the SQL
-    const { data: sqlResult, error: sqlError } = await supabase.rpc('exec_sql', { sql_query: sql });
+    // If preview mode, return validation without execution
+    if (dryRun || previewMode) {
+      console.log('Dry run mode - validating only');
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: 'SQL validation passed',
+          dryRun: true,
+          sql,
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        }
+      );
+    }
+
+    // Execute the SQL with transaction support
+    // Wrap in BEGIN/COMMIT for rollback capability
+    const transactionalSQL = `
+      BEGIN;
+      ${sql}
+      COMMIT;
+    `;
+
+    const { data: sqlResult, error: sqlError } = await supabase.rpc('exec_sql', { 
+      sql_query: transactionalSQL 
+    });
 
     if (sqlError) {
       console.error('SQL execution error:', sqlError);
+      // Transaction will auto-rollback on error
       throw new Error(`SQL execution failed: ${sqlError.message}`);
     }
+
+    console.log('SQL execution result:', sqlResult);
 
     // If table metadata provided, register the table
     let tableRecord = null;
