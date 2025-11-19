@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Database, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -109,7 +109,7 @@ export function SampleDataPreview({ tableName, columns, limit = 5 }: SampleDataP
       </CardHeader>
       <CardContent>
         <ScrollArea className="h-[300px] w-full">
-          <div className="overflow-x-auto">
+          <div className="min-w-max">
             <table className="w-full border-collapse">
               <thead>
                 <tr className="border-b">
@@ -136,6 +136,7 @@ export function SampleDataPreview({ tableName, columns, limit = 5 }: SampleDataP
               </tbody>
             </table>
           </div>
+          <ScrollBar orientation="horizontal" />
         </ScrollArea>
         <div className="mt-2 text-xs text-muted-foreground">
           Showing {sampleData.length} of {rowCount} rows
