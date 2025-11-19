@@ -480,7 +480,7 @@ CREATE TRIGGER update_${newTableName}_updated_at
             mappings={mappings}
             onMappingChange={setMappings}
             mode={importMode}
-            groupedColumns={new Set(columnGroups.flatMap(g => g.sourceColumns))}
+            columnGroups={columnGroups}
           />
 
           {/* Preview Section */}
