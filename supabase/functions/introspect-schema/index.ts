@@ -153,6 +153,29 @@ serve(async (req) => {
         args: [tableName]
       })
 
+      // Get indexes on the table
+      const indexResult = await connection.queryObject<{
+        index_name: string;
+        column_name: string;
+        index_definition: string;
+      }>({
+        text: `
+          SELECT 
+            i.indexname as index_name,
+            a.attname as column_name,
+            pg_get_indexdef(ix.indexrelid) as index_definition
+          FROM pg_indexes i
+          JOIN pg_class c ON c.relname = i.indexname
+          JOIN pg_index ix ON ix.indexrelid = c.oid
+          JOIN pg_attribute a ON a.attrelid = ix.indrelid AND a.attnum = ANY(ix.indkey)
+          WHERE i.tablename = $1
+          AND i.schemaname = 'public'
+          AND NOT i.indexname LIKE '%_pkey'
+          ORDER BY i.indexname, a.attnum
+        `,
+        args: [tableName]
+      })
+
       return new Response(
         JSON.stringify({ 
           success: true,
@@ -160,6 +183,7 @@ serve(async (req) => {
           columns: columnsResult.rows,
           foreign_keys: fkResult.rows,
           constraints: constraintsResult.rows,
+          indexes: indexResult.rows,
           count: columnsResult.rows.length
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
