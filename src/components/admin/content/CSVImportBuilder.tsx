@@ -472,9 +472,133 @@ export function CSVImportBuilder({ sectionId }: CSVImportBuilderProps) {
     setStep('importing');
     setProgress(0);
     setImportStats({ success: 0, failed: 0, total: csvData.length });
-    const errorList: string[] = [];
+    setErrors([]);
+    setDetailedErrors([]);
 
     try {
+      const tableName = importMode === 'create' ? newTableName : selectedExistingTableName;
+      if (!tableName) {
+        throw new Error('No table name specified');
+      }
+
+      console.log('Starting import process...');
+      console.log('Import mode:', importMode);
+      console.log('Table name:', tableName);
+      console.log('Data rows:', csvData.length);
+
+      // Step 1: Create table if in create mode
+      if (importMode === 'create') {
+        console.log('Creating table via execute-ddl...');
+        const sql = generateTableSQL();
+        console.log('Generated SQL:', sql);
+
+        const { data: ddlResult, error: ddlError } = await supabase.functions.invoke(
+          'execute-ddl',
+          {
+            body: { 
+              sql,
+              tableMetadata: {
+                section_id: sectionId,
+                name: tableName,
+                display_name: newTableDisplayName,
+                table_name: tableName,
+                description: `Imported from ${file?.name || 'CSV'}`,
+                schema_definition: mappings.map(m => ({
+                  name: m.targetField,
+                  type: m.dataType,
+                  required: false,
+                })),
+                order_index: 0,
+                is_active: true,
+              }
+            }
+          }
+        );
+
+        if (ddlError) {
+          console.error('DDL execution error:', ddlError);
+          throw new Error(`Failed to create table: ${ddlError.message}`);
+        }
+
+        console.log('DDL execution result:', ddlResult);
+
+        if (!ddlResult?.success) {
+          throw new Error(ddlResult?.error || 'Failed to create table');
+        }
+
+        console.log('Table created successfully');
+      }
+
+      // Step 2: Import data via edge function
+      console.log('Importing data via import-csv-data edge function...');
+      const primaryKeys = detectPrimaryKeys();
+      console.log('Primary keys:', primaryKeys);
+
+      const { data: importResult, error: importError } = await supabase.functions.invoke(
+        'import-csv-data',
+        {
+          body: {
+            tableName,
+            data: csvData,
+            columnMappings: mappings,
+            columnGroups,
+            conflictStrategy,
+            primaryKeys,
+            deleteExisting: false
+          }
+        }
+      );
+
+      if (importError) {
+        console.error('Import edge function error:', importError);
+        throw new Error(`Import failed: ${importError.message}`);
+      }
+
+      console.log('Import result:', importResult);
+
+      if (!importResult?.success) {
+        throw new Error(importResult?.message || 'Import failed');
+      }
+
+      // Update stats
+      setImportStats({
+        success: importResult.imported,
+        failed: importResult.failed,
+        total: csvData.length
+      });
+
+      // Store detailed errors if any
+      if (importResult.errors && importResult.errors.length > 0) {
+        setDetailedErrors(importResult.errors.map(e => ({
+          row: e.row,
+          error: e.error,
+          type: 'insert' as const
+        })));
+        setErrors(importResult.errors.map(e => `Row ${e.row}: ${e.error}`));
+      }
+
+      setProgress(100);
+
+      toast({
+        title: "Import complete",
+        description: `Successfully imported ${importResult.imported} of ${csvData.length} records`,
+      });
+
+      setStep('complete');
+
+    } catch (error: any) {
+      console.error('Import error:', error);
+      setErrors([error.message || 'Unknown error occurred']);
+      toast({
+        title: "Import failed",
+        description: error.message,
+        variant: "destructive",
+      });
+      setStep('complete');
+    }
+  };
+
+  // Reorder mappings when user drags and drops
       // Execute DDL only if creating new table (skip for import mode)
       if (importMode === 'create') {
         const sql = generateTableSQL();
