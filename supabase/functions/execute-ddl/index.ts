@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { Client } from 'https://deno.land/x/postgres@v0.17.0/mod.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -148,25 +149,39 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Execute the SQL with transaction support
-    // Wrap in BEGIN/COMMIT for rollback capability
-    const transactionalSQL = `
-      BEGIN;
-      ${sql}
-      COMMIT;
-    `;
-
-    const { data: sqlResult, error: sqlError } = await supabase.rpc('exec_sql', { 
-      sql_query: transactionalSQL 
-    });
-
-    if (sqlError) {
-      console.error('SQL execution error:', sqlError);
-      // Transaction will auto-rollback on error
-      throw new Error(`SQL execution failed: ${sqlError.message}`);
+    // Execute the SQL using direct database connection
+    const dbUrl = Deno.env.get('SUPABASE_DB_URL');
+    if (!dbUrl) {
+      throw new Error('SUPABASE_DB_URL is not set');
     }
 
-    console.log('SQL execution result:', sqlResult);
+    const client = new Client(dbUrl);
+    
+    try {
+      await client.connect();
+      console.log('Connected to database');
+
+      // Execute each statement sequentially
+      // The Postgres client handles transactions automatically
+      for (let i = 0; i < statements.length; i++) {
+        const statement = statements[i];
+        console.log(`Executing statement ${i + 1}/${statements.length}:`, statement.substring(0, 100));
+        
+        try {
+          await client.queryObject(statement);
+          console.log(`Statement ${i + 1} executed successfully`);
+        } catch (stmtError) {
+          console.error(`Error executing statement ${i + 1}:`, stmtError);
+          const errorMessage = stmtError instanceof Error ? stmtError.message : String(stmtError);
+          throw new Error(`Failed at statement ${i + 1}: ${errorMessage}\nSQL: ${statement.substring(0, 200)}`);
+        }
+      }
+
+      console.log('All DDL statements executed successfully');
+    } finally {
+      await client.end();
+      console.log('Database connection closed');
+    }
 
     // If table metadata provided, register the table
     let tableRecord = null;
