@@ -5,3 +5,6 @@ verify_jwt = true
 
 [functions.introspect-schema]
 verify_jwt = true
+
+[functions.list-tables]
+verify_jwt = true

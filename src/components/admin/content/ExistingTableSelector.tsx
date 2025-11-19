@@ -4,15 +4,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, Database, RefreshCw } from "lucide-react";
+import { Loader2, Database, RefreshCw, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 
-interface TableOption {
-  id: string;
+interface DatabaseTable {
   table_name: string;
-  display_name: string;
-  schema_definition: any;
+  table_schema: string;
+  table_comment?: string;
+  estimated_rows?: number;
 }
 
 interface TableSchema {
@@ -25,7 +26,7 @@ interface TableSchema {
 }
 
 interface ExistingTableSelectorProps {
-  sectionId: string;
+  sectionId?: string;
   selectedTableId: string | null;
   selectedTableName: string | null;
   onTableSelect: (tableId: string, tableName: string, schema: TableSchema) => void;
@@ -38,28 +39,32 @@ export function ExistingTableSelector({
   onTableSelect
 }: ExistingTableSelectorProps) {
   const { toast } = useToast();
-  const [tables, setTables] = useState<TableOption[]>([]);
+  const [tables, setTables] = useState<DatabaseTable[]>([]);
   const [loading, setLoading] = useState(true);
   const [introspecting, setIntrospecting] = useState(false);
   const [schema, setSchema] = useState<TableSchema | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const fetchTables = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('admin_content_tables')
-        .select('id, table_name, display_name, schema_definition')
-        .eq('section_id', sectionId)
-        .eq('is_active', true)
-        .order('display_name');
+      console.log('Fetching all database tables...');
+      
+      const { data, error } = await supabase.functions.invoke('list-tables');
 
       if (error) throw error;
-      setTables(data || []);
+
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
+      console.log('Database tables fetched:', data);
+      setTables(data.tables || []);
     } catch (error) {
       console.error('Error fetching tables:', error);
       toast({
         title: "Error",
-        description: "Failed to fetch tables",
+        description: error instanceof Error ? error.message : "Failed to fetch tables",
         variant: "destructive",
       });
     } finally {
@@ -98,13 +103,13 @@ export function ExistingTableSelector({
     }
   };
 
-  const handleTableChange = async (tableId: string) => {
-    const selectedTable = tables.find(t => t.id === tableId);
+  const handleTableChange = async (tableName: string) => {
+    const selectedTable = tables.find(t => t.table_name === tableName);
     if (!selectedTable) return;
 
     const introspectedSchema = await introspectSchema(selectedTable.table_name);
     if (introspectedSchema) {
-      onTableSelect(tableId, selectedTable.table_name, introspectedSchema);
+      onTableSelect(tableName, selectedTable.table_name, introspectedSchema);
     }
   };
 
@@ -119,7 +124,7 @@ export function ExistingTableSelector({
 
   useEffect(() => {
     fetchTables();
-  }, [sectionId]);
+  }, []);
 
   if (loading) {
     return (
@@ -135,18 +140,41 @@ export function ExistingTableSelector({
       <Alert>
         <Database className="h-4 w-4" />
         <AlertDescription>
-          No existing tables found in this section. Please create a table first or import to a different section.
+          No tables found in the database. Please create a table first.
         </AlertDescription>
       </Alert>
     );
   }
 
+  // Filter tables by search term
+  const filteredTables = tables.filter(t => 
+    t.table_name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
     <div className="space-y-4">
       <div className="space-y-2">
+        <Label htmlFor="tableSearch">Search Tables</Label>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            id="tableSearch"
+            type="text"
+            placeholder="Search by table name..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <p className="text-xs text-muted-foreground">
+          {filteredTables.length} of {tables.length} tables
+        </p>
+      </div>
+
+      <div className="space-y-2">
         <Label htmlFor="existingTable">Select Existing Table *</Label>
         <Select
-          value={selectedTableId || undefined}
+          value={selectedTableName || undefined}
           onValueChange={handleTableChange}
           disabled={introspecting}
         >
@@ -154,18 +182,22 @@ export function ExistingTableSelector({
             <SelectValue placeholder="Choose a table to import into..." />
           </SelectTrigger>
           <SelectContent>
-            {tables.map((table) => (
-              <SelectItem key={table.id} value={table.id}>
+            {filteredTables.map((table) => (
+              <SelectItem key={table.table_name} value={table.table_name}>
                 <div className="flex items-center gap-2">
-                  <span>{table.display_name}</span>
-                  <code className="text-xs text-muted-foreground">({table.table_name})</code>
+                  <code className="text-sm font-mono">{table.table_name}</code>
+                  {table.estimated_rows !== undefined && table.estimated_rows > 0 && (
+                    <Badge variant="secondary" className="text-xs">
+                      ~{table.estimated_rows.toLocaleString()} rows
+                    </Badge>
+                  )}
                 </div>
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
         <p className="text-xs text-muted-foreground">
-          Select the table where you want to import your CSV data
+          Select any table in the database to import your CSV data
         </p>
       </div>
 

@@ -19,7 +19,7 @@ import { Input } from "@/components/ui/input";
 type ImportStep = 'upload' | 'mapping' | 'preview' | 'importing' | 'complete';
 
 export default function CSVImport() {
-  const { sectionId } = useParams();
+  const { sectionId } = useParams<{ sectionId?: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
   
