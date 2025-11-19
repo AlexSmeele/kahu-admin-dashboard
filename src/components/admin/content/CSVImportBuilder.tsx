@@ -54,6 +54,7 @@ export function CSVImportBuilder({ sectionId }: CSVImportBuilderProps) {
   const [progress, setProgress] = useState(0);
   const [importStats, setImportStats] = useState({ success: 0, failed: 0, total: 0 });
   const [errors, setErrors] = useState<string[]>([]);
+  const [detailedErrors, setDetailedErrors] = useState<Array<{ row: number; field?: string; error: string }>>([]);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [tableNameError, setTableNameError] = useState<string>('');
   const [validationResults, setValidationResults] = useState<{
@@ -63,6 +64,21 @@ export function CSVImportBuilder({ sectionId }: CSVImportBuilderProps) {
   } | null>(null);
   const [showValidation, setShowValidation] = useState(false);
   const [conflictStrategy, setConflictStrategy] = useState<'skip' | 'upsert' | 'fail'>('fail');
+
+  // Detect primary key columns from schema
+  const detectPrimaryKeys = (): string[] => {
+    if (!existingTableSchema) return [];
+    
+    // Try to find primary key from column_default containing 'gen_random_uuid'
+    // or common primary key names
+    const pkColumns = existingTableSchema.columns.filter(col => 
+      col.column_name === 'id' || 
+      col.column_default?.includes('gen_random_uuid') ||
+      col.column_default?.includes('nextval')
+    );
+    
+    return pkColumns.map(col => col.column_name);
+  };
 
   const transformValue = (value: any, targetType: string): any => {
     if (value === null || value === undefined || value === '') return null;
@@ -578,15 +594,53 @@ export function CSVImportBuilder({ sectionId }: CSVImportBuilderProps) {
           return transformed;
         });
 
-        // Retry logic for schema cache errors
+        // Execute batch insert with conflict strategy
         let insertError = null;
         let retries = 0;
         const maxRetries = 3;
         
         while (retries < maxRetries) {
-          const { error } = await supabase
-            .from(tableName as any)
-            .insert(transformedBatch);
+          let error = null;
+          
+          if (importMode === 'import' && conflictStrategy !== 'fail') {
+            // Use upsert for existing table with skip/upsert strategy
+            const primaryKeys = detectPrimaryKeys();
+            
+            if (conflictStrategy === 'upsert' && primaryKeys.length > 0) {
+              // Upsert: update on conflict
+              const { error: upsertError } = await supabase
+                .from(tableName as any)
+                .upsert(transformedBatch, {
+                  onConflict: primaryKeys.join(','),
+                  ignoreDuplicates: false
+                });
+              error = upsertError;
+            } else if (conflictStrategy === 'skip') {
+              // Skip: ignore duplicates
+              const primaryKeys = detectPrimaryKeys();
+              if (primaryKeys.length > 0) {
+                const { error: skipError } = await supabase
+                  .from(tableName as any)
+                  .upsert(transformedBatch, {
+                    onConflict: primaryKeys.join(','),
+                    ignoreDuplicates: true
+                  });
+                error = skipError;
+              } else {
+                // No primary key, try insert and catch unique violations
+                const { error: insertErr } = await supabase
+                  .from(tableName as any)
+                  .insert(transformedBatch);
+                error = insertErr;
+              }
+            }
+          } else {
+            // Standard insert (fail on conflict)
+            const { error: insertErr } = await supabase
+              .from(tableName as any)
+              .insert(transformedBatch);
+            error = insertErr;
+          }
           
           if (!error) {
             // Success!
@@ -606,7 +660,17 @@ export function CSVImportBuilder({ sectionId }: CSVImportBuilderProps) {
         }
 
         if (insertError) {
-          errorList.push(`Batch ${i / batchSize + 1}: ${insertError.message}`);
+          const batchNum = i / batchSize + 1;
+          errorList.push(`Batch ${batchNum}: ${insertError.message}`);
+          
+          // Add detailed errors for each row in failed batch
+          batch.forEach((row, idx) => {
+            setDetailedErrors(prev => [...prev, {
+              row: i + idx + 1,
+              error: insertError.message
+            }]);
+          });
+          
           setImportStats(prev => ({
             ...prev,
             failed: prev.failed + batch.length,
@@ -974,12 +1038,33 @@ export function CSVImportBuilder({ sectionId }: CSVImportBuilderProps) {
       <Card>
         <CardHeader>
           <CardTitle>Importing Data</CardTitle>
-          <CardDescription>Please wait while we import your data...</CardDescription>
+          <CardDescription>
+            {importMode === 'import' && conflictStrategy !== 'fail' 
+              ? `Using ${conflictStrategy} strategy for conflict handling` 
+              : 'Please wait while we import your data...'}
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Progress value={progress} />
-          <div className="text-center text-sm text-muted-foreground">
-            {importStats.success} of {importStats.total} records imported
+          <Progress value={progress} className="h-2" />
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Progress:</span>
+              <span className="font-medium">{progress}%</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-green-600">✓ Successful:</span>
+              <span className="font-medium">{importStats.success}</span>
+            </div>
+            {importStats.failed > 0 && (
+              <div className="flex justify-between text-sm">
+                <span className="text-red-600">✗ Failed:</span>
+                <span className="font-medium">{importStats.failed}</span>
+              </div>
+            )}
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Total:</span>
+              <span className="font-medium">{importStats.total}</span>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -1019,12 +1104,37 @@ export function CSVImportBuilder({ sectionId }: CSVImportBuilderProps) {
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
-                <div className="font-semibold mb-2">Errors encountered:</div>
+                <div className="font-semibold mb-2">Batch Errors:</div>
                 <ul className="list-disc list-inside space-y-1">
                   {errors.map((error, i) => (
                     <li key={i} className="text-sm">{error}</li>
                   ))}
                 </ul>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {detailedErrors.length > 0 && (
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                <div className="font-semibold mb-2">Detailed Row Errors ({detailedErrors.length}):</div>
+                <ScrollArea className="h-48 w-full">
+                  <div className="space-y-1 text-xs">
+                    {detailedErrors.slice(0, 50).map((err, i) => (
+                      <div key={i} className="border-b pb-1">
+                        <span className="font-medium">Row {err.row}:</span>
+                        {err.field && <span className="text-muted-foreground"> ({err.field})</span>}
+                        <span className="text-red-600 ml-2">{err.error}</span>
+                      </div>
+                    ))}
+                    {detailedErrors.length > 50 && (
+                      <div className="text-muted-foreground pt-2">
+                        ...and {detailedErrors.length - 50} more errors
+                      </div>
+                    )}
+                  </div>
+                </ScrollArea>
               </AlertDescription>
             </Alert>
           )}
@@ -1041,6 +1151,7 @@ export function CSVImportBuilder({ sectionId }: CSVImportBuilderProps) {
               setMappings([]);
               setColumnGroups([]);
               setErrors([]);
+              setDetailedErrors([]);
             }}>
               Import Another File
             </Button>
