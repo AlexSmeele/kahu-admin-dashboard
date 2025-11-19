@@ -64,8 +64,9 @@ const App = () => (
               <Route path="invites" element={<AdminInvites />} />
               <Route path="system" element={<AdminSystem />} />
               <Route path="content/sections" element={<AdminSections />} />
-              <Route path="content/sections/:id" element={<AdminSectionDetail />} />
+              <Route path="content/sections/:sectionId" element={<AdminSectionDetail />} />
               <Route path="content/sections/:sectionId/tables" element={<AdminContentTables />} />
+              <Route path="content/sections/:sectionId/tables/new" element={<AdminTableSchemaBuilder />} />
               <Route path="content/sections/:sectionId/tables/:tableId" element={<AdminTableSchemaBuilder />} />
               <Route path="content/sections/:sectionId/import" element={<AdminCSVImport />} />
               <Route path="content/sections/:sectionId/tables/:tableId/manage" element={<AdminDynamicContentManager />} />
