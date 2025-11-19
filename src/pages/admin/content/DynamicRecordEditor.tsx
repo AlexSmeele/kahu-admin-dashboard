@@ -67,7 +67,7 @@ export default function DynamicRecordEditor() {
         description: error.message,
         variant: "destructive",
       });
-      navigate(`/admin/content/sections/${sectionId}/tables`);
+      navigate(`/admin/content/sections/${sectionId}`);
     }
   };
 
@@ -216,7 +216,7 @@ export default function DynamicRecordEditor() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate(`/admin/content/sections/${sectionId}/tables/${tableId}/manage`)}>
+        <Button variant="ghost" size="icon" onClick={() => navigate(`/admin/content/sections/${sectionId}/tables/${tableId}/records`)}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div className="flex-1">
@@ -249,7 +249,7 @@ export default function DynamicRecordEditor() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => navigate(`/admin/content/sections/${sectionId}/tables/${tableId}/manage`)}
+                onClick={() => navigate(`/admin/content/sections/${sectionId}/tables/${tableId}/records`)}
               >
                 Cancel
               </Button>

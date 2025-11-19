@@ -388,7 +388,7 @@ CREATE TRIGGER update_${newTableName}_updated_at
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate(`/admin/content/sections/${sectionId}/tables`)}>
+        <Button variant="ghost" size="icon" onClick={() => navigate(`/admin/content/sections/${sectionId}`)}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div className="flex-1">
@@ -595,7 +595,7 @@ CREATE TRIGGER update_${newTableName}_updated_at
             )}
 
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => navigate(`/admin/content/sections/${sectionId}/tables`)}>
+              <Button variant="outline" onClick={() => navigate(`/admin/content/sections/${sectionId}`)}>
                 Back to Tables
               </Button>
               <Button onClick={() => {
