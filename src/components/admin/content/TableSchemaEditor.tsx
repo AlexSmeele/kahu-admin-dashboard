@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { ArrowLeft, Plus, Eye, Save, AlertCircle } from "lucide-react";
+import { ArrowLeft, Plus, Eye, Save, AlertCircle, RefreshCw } from "lucide-react";
 import { SchemaField } from "./SchemaFieldEditor";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -21,6 +21,14 @@ interface SchemaChange {
   migrationSQL?: string;
 }
 
+interface SchemaDrift {
+  type: 'missing_in_db' | 'missing_in_schema' | 'type_mismatch' | 'constraint_mismatch';
+  columnName: string;
+  schemaDefinition?: SchemaField;
+  databaseDefinition?: any;
+  details: string;
+}
+
 export function TableSchemaEditor() {
   const { sectionId, tableId } = useParams();
   const navigate = useNavigate();
@@ -32,6 +40,9 @@ export function TableSchemaEditor() {
   const [showSqlPreview, setShowSqlPreview] = useState(false);
   const [generatedSql, setGeneratedSql] = useState("");
   const [saving, setSaving] = useState(false);
+  const [databaseSchema, setDatabaseSchema] = useState<any[]>([]);
+  const [schemaDrift, setSchemaDrift] = useState<SchemaDrift[]>([]);
+  const [detectingDrift, setDetectingDrift] = useState(false);
 
   useEffect(() => {
     loadTableSchema();
@@ -56,12 +67,138 @@ export function TableSchemaEditor() {
       const schemaFields = (data.schema_definition as any) || [];
       setFields(schemaFields);
       setOriginalFields(JSON.parse(JSON.stringify(schemaFields)));
+      
+      // Also load actual database schema
+      await loadDatabaseSchema(data.table_name);
     } catch (error: any) {
       console.error("Error loading schema:", error);
       toast.error(`Failed to load schema: ${error.message}`);
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadDatabaseSchema = async (tableName: string) => {
+    try {
+      // Call introspect-schema edge function to get actual database columns
+      const { data, error } = await supabase.functions.invoke('introspect-schema', {
+        body: { tableName }
+      });
+
+      if (error) {
+        console.warn('Error introspecting schema:', error);
+        return;
+      }
+
+      console.log('Database schema from introspection:', data);
+      setDatabaseSchema(data?.columns || []);
+      
+    } catch (error: any) {
+      console.error("Error loading database schema:", error);
+    }
+  };
+
+  const detectSchemaDrift = () => {
+    if (!databaseSchema.length) {
+      toast.error("Database schema not loaded. Try refreshing.");
+      return;
+    }
+
+    const drifts: SchemaDrift[] = [];
+
+    // Check for columns in schema_definition but missing in actual database
+    fields.forEach(field => {
+      const dbColumn = databaseSchema.find(col => col.column_name === field.name);
+      
+      if (!dbColumn) {
+        drifts.push({
+          type: 'missing_in_db',
+          columnName: field.name,
+          schemaDefinition: field,
+          details: `Column "${field.name}" is defined in schema but does not exist in the database table.`
+        });
+      } else {
+        // Check for type mismatches
+        const expectedPgType = mapFieldTypeToPostgres(field.type).toLowerCase();
+        const actualPgType = dbColumn.data_type.toLowerCase();
+        
+        if (!typesMatch(expectedPgType, actualPgType)) {
+          drifts.push({
+            type: 'type_mismatch',
+            columnName: field.name,
+            schemaDefinition: field,
+            databaseDefinition: dbColumn,
+            details: `Type mismatch: Schema expects "${field.type}" (${expectedPgType}) but database has "${actualPgType}".`
+          });
+        }
+
+        // Check for nullable mismatches
+        const schemaIsNullable = field.nullable ?? true;
+        const dbIsNullable = dbColumn.is_nullable === 'YES';
+        
+        if (schemaIsNullable !== dbIsNullable) {
+          drifts.push({
+            type: 'constraint_mismatch',
+            columnName: field.name,
+            schemaDefinition: field,
+            databaseDefinition: dbColumn,
+            details: `Nullable constraint mismatch: Schema has nullable=${schemaIsNullable} but database has ${dbIsNullable ? 'NULL' : 'NOT NULL'}.`
+          });
+        }
+      }
+    });
+
+    // Check for columns in database but missing in schema_definition
+    databaseSchema.forEach(dbColumn => {
+      const field = fields.find(f => f.name === dbColumn.column_name);
+      
+      if (!field) {
+        drifts.push({
+          type: 'missing_in_schema',
+          columnName: dbColumn.column_name,
+          databaseDefinition: dbColumn,
+          details: `Column "${dbColumn.column_name}" exists in database but is not defined in schema_definition.`
+        });
+      }
+    });
+
+    setSchemaDrift(drifts);
+    
+    if (drifts.length === 0) {
+      toast.success("No schema drift detected. Schema and database are in sync!");
+    } else {
+      toast.warning(`Detected ${drifts.length} schema discrepancy(ies). Review below.`);
+    }
+  };
+
+  const typesMatch = (expectedPgType: string, actualPgType: string): boolean => {
+    // Normalize types for comparison
+    const normalize = (type: string) => type.toLowerCase().replace(/\s+/g, ' ').trim();
+    const expected = normalize(expectedPgType);
+    const actual = normalize(actualPgType);
+    
+    // Direct match
+    if (expected === actual) return true;
+    
+    // Handle common aliases and variations
+    const typeAliases: Record<string, string[]> = {
+      'text': ['text', 'character varying', 'varchar'],
+      'numeric': ['numeric', 'decimal', 'double precision', 'real'],
+      'timestamp with time zone': ['timestamp with time zone', 'timestamptz'],
+      'jsonb': ['jsonb', 'json'],
+      'uuid': ['uuid'],
+      'boolean': ['boolean', 'bool'],
+      'date': ['date'],
+      'text[]': ['array', 'text[]', 'character varying[]'],
+    };
+    
+    for (const [key, aliases] of Object.entries(typeAliases)) {
+      if (aliases.includes(expected) && aliases.includes(actual)) {
+        return true;
+      }
+    }
+    
+    return false;
   };
 
   const detectChanges = () => {
@@ -265,6 +402,16 @@ export function TableSchemaEditor() {
     return badges[type];
   };
 
+  const getDriftTypeBadge = (type: SchemaDrift['type']) => {
+    const badges = {
+      missing_in_db: <Badge variant="destructive">Missing in DB</Badge>,
+      missing_in_schema: <Badge variant="default" className="bg-orange-500">Missing in Schema</Badge>,
+      type_mismatch: <Badge variant="default" className="bg-yellow-500">Type Mismatch</Badge>,
+      constraint_mismatch: <Badge variant="default" className="bg-purple-500">Constraint Mismatch</Badge>,
+    };
+    return badges[type];
+  };
+
   if (loading) {
     return <div className="p-8">Loading schema...</div>;
   }
@@ -306,6 +453,32 @@ export function TableSchemaEditor() {
             )}
           </AlertDescription>
         </Alert>
+      )}
+
+      {schemaDrift.length > 0 && (
+        <Card className="mb-6 border-orange-500">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-orange-500" />
+              Schema Drift Detected
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {schemaDrift.map((drift, index) => (
+                <Alert key={index} variant={drift.type === 'missing_in_db' ? 'destructive' : 'default'}>
+                  <div className="flex items-start gap-3">
+                    {getDriftTypeBadge(drift.type)}
+                    <div className="flex-1">
+                      <p className="font-semibold">{drift.columnName}</p>
+                      <p className="text-sm text-muted-foreground mt-1">{drift.details}</p>
+                    </div>
+                  </div>
+                </Alert>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       <Card className="mb-6">
