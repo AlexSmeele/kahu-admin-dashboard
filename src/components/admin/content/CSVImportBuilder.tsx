@@ -379,7 +379,21 @@ export function CSVImportBuilder({ sectionId }: CSVImportBuilderProps) {
 
         toast({
           title: "Table created",
-          description: "Now importing data...",
+          description: "Refreshing database schema...",
+        });
+
+        // Wait for Supabase schema cache to refresh
+        console.log('Waiting 3 seconds for Supabase schema cache to refresh...');
+        for (let i = 0; i < 3; i++) {
+          console.log(`Schema refresh wait: ${i + 1}/3 seconds...`);
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+
+        console.log('Schema cache should be refreshed. Beginning data import...');
+
+        toast({
+          title: "Ready to import",
+          description: "Starting data import...",
         });
       }
 
@@ -435,12 +449,35 @@ export function CSVImportBuilder({ sectionId }: CSVImportBuilderProps) {
           return transformed;
         });
 
-        const { error } = await supabase
-          .from(tableName as any)
-          .insert(transformedBatch);
+        // Retry logic for schema cache errors
+        let insertError = null;
+        let retries = 0;
+        const maxRetries = 3;
+        
+        while (retries < maxRetries) {
+          const { error } = await supabase
+            .from(tableName as any)
+            .insert(transformedBatch);
+          
+          if (!error) {
+            // Success!
+            insertError = null;
+            break;
+          }
+          
+          // Check if it's a schema cache error
+          if (error.message?.includes('schema cache') && retries < maxRetries - 1) {
+            console.warn(`Schema cache error on batch ${i / batchSize + 1}, retry ${retries + 1}/${maxRetries}...`);
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            retries++;
+          } else {
+            insertError = error;
+            break;
+          }
+        }
 
-        if (error) {
-          errorList.push(`Batch ${i / batchSize + 1}: ${error.message}`);
+        if (insertError) {
+          errorList.push(`Batch ${i / batchSize + 1}: ${insertError.message}`);
           setImportStats(prev => ({
             ...prev,
             failed: prev.failed + batch.length,
