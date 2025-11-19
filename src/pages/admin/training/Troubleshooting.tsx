@@ -1,59 +1,57 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Plus, Search, ArrowUpDown } from "lucide-react";
+import { Plus, AlertCircle } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 export default function AdminTroubleshooting() {
   return (
     <div className="p-4 md:p-8">
-      <div className="mb-4 md:mb-6">
-        <div className="mb-3 md:mb-4">
-          <h1 className="text-2xl md:text-3xl font-bold">Troubleshooting Library</h1>
-          <p className="text-sm md:text-base text-muted-foreground">Manage behavior issues and solutions</p>
-        </div>
-        <div className="flex flex-row gap-2">
-          <Button variant="outline" className="flex-1 sm:flex-none sm:w-auto">
-            <ArrowUpDown className="mr-2 h-4 w-4" />
-            Reorder Issues
-          </Button>
-          <Button className="flex-1 sm:flex-none sm:w-auto">
+      <div className="mb-6 flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold">Troubleshooting Library</h1>
+            <p className="text-sm md:text-base text-muted-foreground">Manage behavior issues and solutions</p>
+          </div>
+          <Button disabled>
             <Plus className="mr-2 h-4 w-4" />
             Add Issue
           </Button>
         </div>
+
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Coming Soon</AlertTitle>
+          <AlertDescription>
+            The Troubleshooting management system is under development. Once implemented, you'll be able to manage behavior issues using the unified table viewer.
+          </AlertDescription>
+        </Alert>
       </div>
 
       <Card>
-        <CardHeader className="p-4 md:p-6">
-          <CardTitle className="text-base md:text-lg">Behavior Issues</CardTitle>
-          <CardDescription className="text-xs md:text-sm">
-            Click on an issue to view and edit details
-          </CardDescription>
+        <CardHeader>
+          <CardTitle>Behavior Issues</CardTitle>
+          <CardDescription>Common problems and evidence-based solutions</CardDescription>
         </CardHeader>
-        <CardContent className="p-4 pt-0 md:p-6 md:pt-0">
-          <div className="mb-3 md:mb-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search issues..."
-                className="pl-10"
-              />
-            </div>
-          </div>
-
-          <div className="text-sm text-muted-foreground">
-            Troubleshooting entries will be displayed here. This section will include:
-            <ul className="mt-2 list-disc list-inside space-y-1">
-              <li>Problem descriptions and signs</li>
+        <CardContent>
+          <div className="text-sm text-muted-foreground space-y-4">
+            <p>The troubleshooting interface will include:</p>
+            <ul className="list-disc list-inside space-y-2">
+              <li>Problem descriptions and behavioral signs</li>
               <li>Root cause explanations</li>
               <li>Recommended training steps</li>
-              <li>Linked skills and modules</li>
-              <li>Do's and don'ts</li>
-              <li>Supporting media and resources</li>
+              <li>Linked skills and modules for remediation</li>
+              <li>Management strategies (do's and don'ts)</li>
+              <li>Supporting media and video demonstrations</li>
+              <li>Severity levels and urgency indicators</li>
+              <li>When to consult a professional trainer or behaviorist</li>
             </ul>
+            <p className="pt-4 text-xs text-muted-foreground italic">
+              To implement: Create a 'troubleshooting_issues' table in the database and integrate with the UnifiedDataViewer component.
+            </p>
           </div>
         </CardContent>
       </Card>
     </div>
   );
 }
+
