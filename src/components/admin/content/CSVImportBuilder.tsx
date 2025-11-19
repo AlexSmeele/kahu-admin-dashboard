@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { CheckCircle, AlertCircle, Code, Sparkles } from "lucide-react";
+import { CheckCircle, AlertCircle, Code, Sparkles, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Papa from "papaparse";
 import { CSVUploader } from "./CSVUploader";
@@ -331,6 +331,15 @@ export function CSVImportBuilder({ sectionId }: CSVImportBuilderProps) {
       if (importMode === 'create') {
         const sql = generateTableSQL();
         
+        console.log('=== CSV IMPORT DEBUG ===');
+        console.log('Generated SQL:', sql);
+        console.log('Table metadata:', {
+          section_id: sectionId,
+          name: newTableName,
+          display_name: newTableDisplayName,
+          table_name: newTableName,
+        });
+
         const { data: ddlResult, error: ddlError } = await supabase.functions.invoke('execute-ddl', {
           body: {
             sql,
@@ -352,8 +361,21 @@ export function CSVImportBuilder({ sectionId }: CSVImportBuilderProps) {
           },
         });
 
-        if (ddlError) throw ddlError;
-        if (!ddlResult.success) throw new Error(ddlResult.error || 'Failed to create table');
+        console.log('DDL Response:', { data: ddlResult, error: ddlError });
+
+        if (ddlError) {
+          console.error('DDL Error Details:', {
+            message: ddlError.message,
+            status: ddlError.status,
+            details: ddlError
+          });
+          throw new Error(`Failed to create table: ${ddlError.message}`);
+        }
+
+        if (!ddlResult.success) {
+          console.error('DDL Failed:', ddlResult);
+          throw new Error(ddlResult.error || 'Failed to create table');
+        }
 
         toast({
           title: "Table created",
@@ -449,9 +471,19 @@ export function CSVImportBuilder({ sectionId }: CSVImportBuilderProps) {
         });
       }
     } catch (error: any) {
+      console.error('Import failed:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      
       toast({
         title: "Import failed",
-        description: error.message,
+        description: (
+          <div className="space-y-2">
+            <p className="font-semibold">{errorMessage}</p>
+            <p className="text-xs text-muted-foreground">
+              Check the browser console (F12) for detailed logs
+            </p>
+          </div>
+        ),
         variant: "destructive",
       });
       setStep('mapping');
@@ -628,7 +660,26 @@ export function CSVImportBuilder({ sectionId }: CSVImportBuilderProps) {
           </Card>
         )}
 
-        <div className="flex justify-end">
+        <div className="flex gap-2">
+          {importMode === 'create' && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                const sql = generateTableSQL();
+                console.log('=== PREVIEW SQL ===');
+                console.log(sql);
+                navigator.clipboard.writeText(sql);
+                toast({
+                  title: "SQL Copied",
+                  description: "Generated SQL has been copied to clipboard and logged to console (F12)",
+                });
+              }}
+            >
+              <Eye className="h-4 w-4 mr-2" />
+              Preview SQL
+            </Button>
+          )}
           <Button onClick={handleImport} size="lg">
             {importMode === 'create' ? 'Create Table & Import Data' : 'Import Data'}
           </Button>

@@ -68,7 +68,13 @@ Deno.serve(async (req) => {
     // Split by semicolons and validate each statement
     const statements = sql
       .split(';')
-      .map(s => s.trim())
+      .map(s => {
+        // Remove SQL comments (-- comments and /* */ comments)
+        return s
+          .replace(/--.*$/gm, '') // Remove line comments
+          .replace(/\/\*[\s\S]*?\*\//g, '') // Remove block comments
+          .trim();
+      })
       .filter(s => s.length > 0);
 
     const allowedPatterns = [
@@ -98,13 +104,25 @@ Deno.serve(async (req) => {
       // Check for disallowed patterns
       const hasDisallowed = disallowedPatterns.some(pattern => pattern.test(statementLower));
       if (hasDisallowed) {
-        throw new Error('SQL contains disallowed operations');
+        const matchedPattern = disallowedPatterns.find(p => p.test(statementLower));
+        console.error('Disallowed pattern matched:', {
+          statement: statement.substring(0, 100),
+          pattern: matchedPattern?.source
+        });
+        throw new Error(`SQL contains disallowed operations: ${statement.substring(0, 50)}...`);
       }
 
       // Check for allowed patterns
       const isAllowed = allowedPatterns.some(pattern => pattern.test(statementLower));
       if (!isAllowed) {
-        throw new Error('Only CREATE TABLE, ALTER TABLE, CREATE INDEX, CREATE FUNCTION, CREATE TRIGGER, and RLS policies are allowed');
+        console.error('Statement not allowed:', {
+          statement: statement.substring(0, 100),
+          checkedPatterns: allowedPatterns.map(p => p.source)
+        });
+        throw new Error(
+          `Statement not allowed: "${statement.substring(0, 50)}...". ` +
+          `Only CREATE TABLE, ALTER TABLE, CREATE INDEX, CREATE FUNCTION, CREATE TRIGGER, and RLS policies are allowed.`
+        );
       }
     }
 
@@ -159,10 +177,13 @@ Deno.serve(async (req) => {
     );
   } catch (error) {
     console.error('Error:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    
     return new Response(
       JSON.stringify({
         success: false,
-        error: error instanceof Error ? error.message : String(error),
+        error: errorMessage,
+        timestamp: new Date().toISOString()
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
