@@ -14,20 +14,45 @@ interface CSVPreviewProps {
 
 export function CSVPreview({ data, mappings, columnGroups, maxRows = 5 }: CSVPreviewProps) {
   const previewData = data.slice(0, maxRows);
+  
+  const groupedColumns = new Set(columnGroups.flatMap(g => g.sourceColumns));
+  
   const transformedData = previewData.map(row => {
     const transformed: any = {};
+    
     columnGroups.forEach(group => {
-      const arrayValues = group.sourceColumns.map(colName => row[colName]).filter(val => val && val.trim()).map(val => val.trim());
+      const arrayValues = group.sourceColumns
+        .map(colName => row[colName])
+        .filter(val => val && val.trim())
+        .map(val => val.trim());
       transformed[group.targetField] = arrayValues;
     });
-    const groupedColumns = new Set(columnGroups.flatMap(g => g.sourceColumns));
+    
     mappings.forEach(mapping => {
       if (!mapping.targetField || mapping.isGrouped || groupedColumns.has(mapping.csvColumn)) return;
       transformed[mapping.targetField] = row[mapping.csvColumn];
     });
+    
     return transformed;
   });
-  const allFields = [...columnGroups.map(g => ({ name: g.targetField, type: 'json' })), ...mappings.filter(m => m.targetField && !m.isGrouped).map(m => ({ name: m.targetField, type: m.dataType }))];
+  
+  const groupFields = columnGroups.map(g => ({ 
+    name: g.targetField, 
+    type: 'json' 
+  }));
+  
+  const ungroupedFields = mappings
+    .filter(m => 
+      m.targetField && 
+      !groupedColumns.has(m.csvColumn) && 
+      !m.isGrouped
+    )
+    .map(m => ({ 
+      name: m.targetField, 
+      type: m.dataType 
+    }));
+  
+  const allFields = [...groupFields, ...ungroupedFields];
   const renderValue = (value: any, type: string) => {
     if (value === null || value === undefined || value === '') return <span className="text-muted-foreground italic">null</span>;
     if (type === 'json' || Array.isArray(value)) return <Badge variant="outline" className="font-mono text-xs max-w-[200px] truncate">{JSON.stringify(value)}</Badge>;

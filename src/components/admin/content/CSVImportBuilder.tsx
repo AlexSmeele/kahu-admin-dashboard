@@ -44,6 +44,35 @@ export function CSVImportBuilder({ sectionId }: CSVImportBuilderProps) {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [tableNameError, setTableNameError] = useState<string>('');
 
+  const syncMappingsWithGroups = (
+    currentMappings: ColumnMapping[], 
+    groups: ColumnGroup[]
+  ): ColumnMapping[] => {
+    const groupedColumnsMap = new Map<string, string>();
+    
+    groups.forEach(group => {
+      group.sourceColumns.forEach(col => {
+        groupedColumnsMap.set(col, group.targetField);
+      });
+    });
+    
+    return currentMappings.map(mapping => {
+      const groupTargetField = groupedColumnsMap.get(mapping.csvColumn);
+      if (groupTargetField) {
+        return {
+          ...mapping,
+          targetField: groupTargetField,
+          isGrouped: true,
+          dataType: 'json'
+        };
+      }
+      return {
+        ...mapping,
+        isGrouped: false
+      };
+    });
+  };
+
   const detectDataType = (values: string[]): CSVColumn['detectedType'] => {
     const nonEmpty = values.filter(v => v && v.trim());
     if (nonEmpty.length === 0) return 'text';
@@ -186,7 +215,9 @@ export function CSVImportBuilder({ sectionId }: CSVImportBuilderProps) {
         targetField: col.name.toLowerCase().replace(/\s+/g, '_'),
         dataType: col.detectedType,
       }));
-      setMappings(initialMappings);
+      
+      const syncedMappings = syncMappingsWithGroups(initialMappings, detectedGroups);
+      setMappings(syncedMappings);
 
       const defaultTableName = selectedFile.name.replace('.csv', '').toLowerCase().replace(/[^a-z0-9]/g, '_');
       setNewTableName(defaultTableName);
@@ -542,7 +573,10 @@ export function CSVImportBuilder({ sectionId }: CSVImportBuilderProps) {
           <ColumnGroupManager
             columns={columns}
             groups={columnGroups}
-            onGroupsChange={setColumnGroups}
+            onGroupsChange={(newGroups) => {
+              setColumnGroups(newGroups);
+              setMappings(prev => syncMappingsWithGroups(prev, newGroups));
+            }}
             groupedColumns={new Set(columnGroups.flatMap(g => g.sourceColumns))}
           />
         )}
