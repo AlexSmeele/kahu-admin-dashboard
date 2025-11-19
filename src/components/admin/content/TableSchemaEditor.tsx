@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { ArrowLeft, Plus, Eye, Save, AlertCircle, RefreshCw, History, Database } from "lucide-react";
@@ -16,6 +16,7 @@ import { MigrationHistoryDialog } from "./MigrationHistoryDialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Progress } from "@/components/ui/progress";
 
 interface SchemaChange {
   type: 'add' | 'modify' | 'delete' | 'rename';
@@ -72,6 +73,9 @@ export function TableSchemaEditor() {
   const [showHistoryDialog, setShowHistoryDialog] = useState(false);
   const [useCopyStrategy, setUseCopyStrategy] = useState(false);
   const [customTransformations, setCustomTransformations] = useState<Record<string, string>>({});
+  const [migrationProgress, setMigrationProgress] = useState(0);
+  const [isMigrating, setIsMigrating] = useState(false);
+  const [batchStatus, setBatchStatus] = useState<Array<{ batch: number; success: boolean; error?: string; rowsProcessed: number }>>([]);
 
   useEffect(() => {
     loadTableSchema();
@@ -669,6 +673,111 @@ export function TableSchemaEditor() {
     }
   };
 
+  const executeBatchMigration = async (
+    tableName: string,
+    columnName: string,
+    transformation: string,
+    totalRows: number
+  ) => {
+    const BATCH_SIZE = 1000;
+    const MAX_RETRIES = 3;
+    const totalBatches = Math.ceil(totalRows / BATCH_SIZE);
+    const batches: typeof batchStatus = [];
+    
+    setIsMigrating(true);
+    setMigrationProgress(0);
+    setBatchStatus([]);
+
+    console.log(`Starting batch migration: ${totalRows} rows in ${totalBatches} batches`);
+
+    for (let batchNum = 0; batchNum < totalBatches; batchNum++) {
+      const offset = batchNum * BATCH_SIZE;
+      let retryCount = 0;
+      let batchSuccess = false;
+      let batchError: string | undefined;
+
+      while (retryCount < MAX_RETRIES && !batchSuccess) {
+        try {
+          // Execute batch update with LIMIT and OFFSET pattern
+          const batchSql = `
+            WITH batch_ids AS (
+              SELECT id FROM ${tableName}
+              ORDER BY id
+              LIMIT ${BATCH_SIZE} OFFSET ${offset}
+            )
+            UPDATE ${tableName}
+            SET ${columnName} = ${transformation}
+            WHERE id IN (SELECT id FROM batch_ids);
+          `;
+
+          const { data, error } = await supabase.functions.invoke('execute-ddl', {
+            body: { sql: batchSql },
+          });
+
+          if (error || !data?.success) {
+            throw new Error(data?.error || error?.message || 'Batch execution failed');
+          }
+
+          batchSuccess = true;
+          batches.push({
+            batch: batchNum + 1,
+            success: true,
+            rowsProcessed: Math.min(BATCH_SIZE, totalRows - offset),
+          });
+
+          console.log(`Batch ${batchNum + 1}/${totalBatches} completed successfully`);
+
+          // Log batch completion to migration history
+          try {
+            const { data: userData } = await supabase.auth.getUser();
+            await supabase.from('schema_migration_history').insert([{
+              table_id: tableId as string,
+              table_name: tableName,
+              migration_type: 'batch_data_migration',
+              changes: { batch: batchNum + 1, totalBatches, columnName, transformation } as any,
+              sql_executed: batchSql,
+              executed_by: userData.user?.id || null,
+              success: true,
+              affected_rows: Math.min(BATCH_SIZE, totalRows - offset),
+            }]);
+          } catch (historyError) {
+            console.warn('Failed to log batch to history:', historyError);
+          }
+
+        } catch (error: any) {
+          retryCount++;
+          batchError = error.message;
+          
+          if (retryCount < MAX_RETRIES) {
+            console.warn(`Batch ${batchNum + 1} failed, retrying (${retryCount}/${MAX_RETRIES}): ${error.message}`);
+            await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2s before retry
+          } else {
+            console.error(`Batch ${batchNum + 1} failed after ${MAX_RETRIES} retries: ${error.message}`);
+            batches.push({
+              batch: batchNum + 1,
+              success: false,
+              error: error.message,
+              rowsProcessed: 0,
+            });
+          }
+        }
+      }
+
+      // Update progress
+      const progress = Math.round(((batchNum + 1) / totalBatches) * 100);
+      setMigrationProgress(progress);
+      setBatchStatus([...batches]);
+
+      // If batch failed after all retries, stop migration
+      if (!batchSuccess) {
+        throw new Error(`Batch migration failed at batch ${batchNum + 1}: ${batchError}`);
+      }
+    }
+
+    setIsMigrating(false);
+    return batches;
+  };
+
   const handleSaveChanges = async () => {
     if (changes.length === 0) {
       toast.info("No changes to save");
@@ -698,25 +807,81 @@ export function TableSchemaEditor() {
     try {
       setSaving(true);
 
+      // Check if we need batch migration for large tables
+      const LARGE_TABLE_THRESHOLD = 10000;
+      const typeChanges = changes.filter(c => c.type === 'modify' && c.oldValue?.type !== c.newValue?.type);
+      
+      let useBatchMigration = false;
+      let batchMigrationData: { columnName: string; totalRows: number; transformation: string } | null = null;
+
+      if (typeChanges.length > 0 && tableData) {
+        // Count total rows in table
+        const { count: totalRows } = await supabase
+          .from(tableData.table_name)
+          .select('*', { count: 'exact', head: true });
+
+        if (totalRows && totalRows > LARGE_TABLE_THRESHOLD) {
+          useBatchMigration = true;
+          const change = typeChanges[0]; // Handle first type change with batching
+          const columnName = change.columnName;
+          const customTransform = customTransformations[columnName];
+          const transformation = customTransform || `${columnName}::${mapFieldTypeToPostgres(change.newValue!.type)}`;
+          
+          batchMigrationData = { columnName, totalRows, transformation };
+        }
+      }
+
       // Generate and execute SQL with transaction support
       const sql = generateMigrationSQL();
       
       console.log('Executing schema migration:', sql);
       
-      const { data: ddlResult, error: ddlError } = await supabase.functions.invoke('execute-ddl', {
-        body: { sql },
-      });
+      // If using batch migration, execute DDL first (schema changes), then batch data migration
+      if (useBatchMigration && batchMigrationData) {
+        toast.info(`Large table detected (${batchMigrationData.totalRows.toLocaleString()} rows). Starting batch migration...`);
+        
+        // Execute DDL for schema changes
+        const { data: ddlResult, error: ddlError } = await supabase.functions.invoke('execute-ddl', {
+          body: { sql },
+        });
 
-      if (ddlError) {
-        console.error('DDL execution error:', ddlError);
-        throw ddlError;
+        if (ddlError || !ddlResult?.success) {
+          throw new Error(ddlResult?.error || ddlError?.message || 'DDL execution failed');
+        }
+
+        // Execute batch data migration
+        const batches = await executeBatchMigration(
+          tableData.table_name,
+          batchMigrationData.columnName,
+          batchMigrationData.transformation,
+          batchMigrationData.totalRows
+        );
+
+        const successfulBatches = batches.filter(b => b.success).length;
+        const failedBatches = batches.filter(b => !b.success).length;
+
+        if (failedBatches > 0) {
+          throw new Error(`Batch migration completed with ${failedBatches} failed batches. ${successfulBatches} batches succeeded.`);
+        }
+
+        console.log(`Batch migration completed successfully: ${successfulBatches} batches`);
+      } else {
+        // Standard single-transaction migration
+        const { data: ddlResult, error: ddlError } = await supabase.functions.invoke('execute-ddl', {
+          body: { sql },
+        });
+
+        if (ddlError) {
+          console.error('DDL execution error:', ddlError);
+          throw ddlError;
+        }
+
+        if (!ddlResult?.success) {
+          throw new Error(ddlResult?.error || 'DDL execution failed');
+        }
+
+        console.log('DDL execution successful:', ddlResult);
       }
-
-      if (!ddlResult?.success) {
-        throw new Error(ddlResult?.error || 'DDL execution failed');
-      }
-
-      console.log('DDL execution successful:', ddlResult);
 
       // Log migration to history
       try {
@@ -724,12 +889,12 @@ export function TableSchemaEditor() {
         await supabase.from('schema_migration_history').insert([{
           table_id: tableId as string,
           table_name: tableData.table_name,
-          migration_type: 'schema_modification',
+          migration_type: useBatchMigration ? 'batch_schema_modification' : 'schema_modification',
           changes: changes as any,
           sql_executed: sql,
           executed_by: userData.user?.id || null,
           success: true,
-          affected_rows: null,
+          affected_rows: batchMigrationData?.totalRows || null,
         }]);
       } catch (historyError) {
         console.warn('Failed to log migration history:', historyError);
@@ -743,9 +908,16 @@ export function TableSchemaEditor() {
 
       if (updateError) throw updateError;
 
-      toast.success("Schema updated successfully. Changes have been applied with transaction support.");
+      toast.success(
+        useBatchMigration 
+          ? `Schema updated successfully with batch migration. ${batchStatus.length} batches processed.`
+          : "Schema updated successfully. Changes have been applied with transaction support."
+      );
+      
       setOriginalFields(JSON.parse(JSON.stringify(fields)));
       setChanges([]);
+      setMigrationProgress(0);
+      setBatchStatus([]);
       
       // Reload database schema to sync
       await loadDatabaseSchema(tableData.table_name);
@@ -757,6 +929,7 @@ export function TableSchemaEditor() {
       toast.error(`Failed to save schema: ${error.message}. Changes have been rolled back.`);
     } finally {
       setSaving(false);
+      setIsMigrating(false);
     }
   };
 
@@ -828,6 +1001,57 @@ export function TableSchemaEditor() {
 
   return (
     <div className="container mx-auto py-8 px-4 max-w-7xl">
+      {isMigrating && (
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <div className="animate-spin">⚙️</div>
+              Batch Migration in Progress
+            </CardTitle>
+            <CardDescription>
+              Processing large table data migration in batches. Please do not close this window.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>Progress</span>
+                <span className="font-semibold">{migrationProgress}%</span>
+              </div>
+              <Progress value={migrationProgress} className="h-3" />
+            </div>
+            
+            {batchStatus.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Batch Status:</p>
+                <ScrollArea className="h-32 rounded-md border p-2">
+                  <div className="space-y-1">
+                    {batchStatus.map((batch) => (
+                      <div
+                        key={batch.batch}
+                        className="flex items-center justify-between text-xs p-1 rounded"
+                      >
+                        <span>Batch {batch.batch}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-muted-foreground">
+                            {batch.rowsProcessed} rows
+                          </span>
+                          {batch.success ? (
+                            <Badge variant="default" className="bg-green-500 text-xs">✓ Success</Badge>
+                          ) : (
+                            <Badge variant="destructive" className="text-xs">✗ Failed</Badge>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       <div className="mb-6">
         <Button
           variant="ghost"
@@ -964,10 +1188,10 @@ export function TableSchemaEditor() {
         </Button>
         <Button
           onClick={handleSaveChanges}
-          disabled={changes.length === 0 || saving}
+          disabled={changes.length === 0 || saving || isMigrating}
         >
           <Save className="h-4 w-4 mr-2" />
-          {saving ? "Saving..." : "Save Changes"}
+          {saving || isMigrating ? "Saving..." : "Save Changes"}
         </Button>
       </div>
 
