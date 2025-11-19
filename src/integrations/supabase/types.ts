@@ -2756,6 +2756,54 @@ export type Database = {
         }
         Relationships: []
       }
+      troubleshooting_modules: {
+        Row: {
+          brief_description: string | null
+          brief_steps: Json | null
+          category: string | null
+          created_at: string | null
+          detailed_description: string | null
+          detailed_steps: Json | null
+          estimated_time: string | null
+          format: string | null
+          id: string
+          ideal_stage: string | null
+          name: string | null
+          order_index: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          brief_description?: string | null
+          brief_steps?: Json | null
+          category?: string | null
+          created_at?: string | null
+          detailed_description?: string | null
+          detailed_steps?: Json | null
+          estimated_time?: string | null
+          format?: string | null
+          id?: string
+          ideal_stage?: string | null
+          name?: string | null
+          order_index?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          brief_description?: string | null
+          brief_steps?: Json | null
+          category?: string | null
+          created_at?: string | null
+          detailed_description?: string | null
+          detailed_steps?: Json | null
+          estimated_time?: string | null
+          format?: string | null
+          id?: string
+          ideal_stage?: string | null
+          name?: string | null
+          order_index?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       user_breed_recommendations: {
         Row: {
           breed_name: string
