@@ -3290,6 +3290,7 @@ export type Database = {
         Args: { data: string; key_name?: string }
         Returns: string
       }
+      exec_sql: { Args: { sql_query: string }; Returns: string }
       generate_invitation_token: { Args: never; Returns: string }
       get_accessible_vet_clinics: {
         Args: { include_contact_info?: boolean; search_query?: string }
