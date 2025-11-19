@@ -165,6 +165,13 @@ export default function ContentTables() {
                   <div className="flex gap-1">
                     <Button
                       variant="ghost"
+                      size="sm"
+                      onClick={() => navigate(`/admin/content/sections/${sectionId}/tables/${table.id}/manage`)}
+                    >
+                      Manage Data
+                    </Button>
+                    <Button
+                      variant="ghost"
                       size="icon"
                       onClick={() => navigate(`/admin/content/sections/${sectionId}/tables/${table.id}`)}
                     >
