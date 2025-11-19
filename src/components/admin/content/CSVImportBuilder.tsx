@@ -15,9 +15,19 @@ import { CSVUploader } from "./CSVUploader";
 import { CSVColumnMapper, CSVColumn, ColumnMapping } from "./CSVColumnMapper";
 import { ColumnGroupManager, ColumnGroup } from "./ColumnGroupManager";
 import { CSVPreview } from "./CSVPreview";
+import { ExistingTableSelector } from "./ExistingTableSelector";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { validateSQLIdentifier, sanitizeSQLIdentifier } from "@/lib/validators";
+
+interface TableSchema {
+  columns: Array<{
+    column_name: string;
+    data_type: string;
+    is_nullable: string;
+    column_default: string | null;
+  }>;
+}
 
 interface CSVImportBuilderProps {
   sectionId: string;
@@ -38,6 +48,9 @@ export function CSVImportBuilder({ sectionId }: CSVImportBuilderProps) {
   const [importMode, setImportMode] = useState<'create' | 'import'>('create');
   const [newTableName, setNewTableName] = useState('');
   const [newTableDisplayName, setNewTableDisplayName] = useState('');
+  const [selectedExistingTableId, setSelectedExistingTableId] = useState<string | null>(null);
+  const [selectedExistingTableName, setSelectedExistingTableName] = useState<string | null>(null);
+  const [existingTableSchema, setExistingTableSchema] = useState<TableSchema | null>(null);
   const [progress, setProgress] = useState(0);
   const [importStats, setImportStats] = useState({ success: 0, failed: 0, total: 0 });
   const [errors, setErrors] = useState<string[]>([]);
@@ -567,7 +580,7 @@ export function CSVImportBuilder({ sectionId }: CSVImportBuilderProps) {
                 <Label htmlFor="import" className="flex-1 cursor-pointer">
                   <div className="font-semibold">Import to existing table</div>
                   <div className="text-sm text-muted-foreground">
-                    Import data into an existing table (coming soon)
+                    Import data into an existing table
                   </div>
                 </Label>
               </div>
@@ -632,9 +645,28 @@ export function CSVImportBuilder({ sectionId }: CSVImportBuilderProps) {
                     placeholder="e.g., Training Skills"
                     required
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Human-readable name shown in the admin interface
+                  </p>
                 </div>
               </div>
             )}
+
+            {importMode === 'import' && (
+              <div className="mt-4">
+                <ExistingTableSelector
+                  sectionId={sectionId}
+                  selectedTableId={selectedExistingTableId}
+                  selectedTableName={selectedExistingTableName}
+                  onTableSelect={(tableId, tableName, schema) => {
+                    setSelectedExistingTableId(tableId);
+                    setSelectedExistingTableName(tableName);
+                    setExistingTableSchema(schema);
+                  }}
+                />
+              </div>
+            )}
+
           </CardContent>
         </Card>
 
