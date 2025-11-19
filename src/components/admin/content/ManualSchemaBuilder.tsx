@@ -151,7 +151,10 @@ export function ManualSchemaBuilder({ sectionId, tableId }: ManualSchemaBuilderP
           fieldDef += 'TIMESTAMP WITH TIME ZONE';
           break;
         case 'json':
-        case 'array':
+        case 'text_array':
+        case 'integer_array':
+        case 'uuid_array':
+        case 'jsonb_array':
           fieldDef += 'JSONB';
           break;
         case 'uuid':

@@ -33,16 +33,19 @@ interface TableSchemaRowProps {
 
 const fieldTypes = [
   { value: 'text', label: 'Text' },
+  { value: 'integer', label: 'Integer' },
   { value: 'number', label: 'Number' },
+  { value: 'bigint', label: 'Big Integer' },
   { value: 'boolean', label: 'Boolean' },
   { value: 'date', label: 'Date' },
   { value: 'datetime', label: 'Date & Time' },
-  { value: 'json', label: 'JSON' },
-  { value: 'array', label: 'Array' },
   { value: 'uuid', label: 'UUID' },
+  { value: 'json', label: 'JSON' },
+  { value: 'text_array', label: 'Text Array' },
+  { value: 'integer_array', label: 'Integer Array' },
+  { value: 'uuid_array', label: 'UUID Array' },
+  { value: 'jsonb_array', label: 'JSONB Array' },
   { value: 'file_url', label: 'File URL' },
-  { value: 'select', label: 'Select' },
-  { value: 'multiselect', label: 'Multi-select' },
 ];
 
 export function TableSchemaRow({

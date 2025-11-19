@@ -145,7 +145,10 @@ export default function DynamicContentManager() {
       case 'datetime':
         return new Date(value).toLocaleString();
       case 'json':
-      case 'array':
+      case 'text_array':
+      case 'integer_array':
+      case 'uuid_array':
+      case 'jsonb_array':
         return (
           <pre className="text-xs max-w-[200px] overflow-hidden">
             {JSON.stringify(value).substring(0, 50)}...
