@@ -75,24 +75,24 @@ export default function AdminModules() {
         columns={[
           {
             key: 'order_index',
-            label: 'Order',
+            label: '#',
             sortable: true,
-            width: 80,
+            width: 60,
           },
           {
             key: 'name',
             label: 'Module Name',
             sortable: true,
-            minWidth: 200,
+            minWidth: 300,
           },
           {
             key: 'category',
             label: 'Category',
             sortable: true,
             filterable: true,
-            width: 150,
+            width: 180,
             render: (val) => (
-              <Badge variant="secondary" className="capitalize">
+              <Badge variant="secondary" className="capitalize text-xs px-2 py-0.5">
                 {val}
               </Badge>
             ),
@@ -101,9 +101,9 @@ export default function AdminModules() {
             key: 'format',
             label: 'Format',
             sortable: true,
-            width: 120,
+            width: 110,
             render: (val) => (
-              <Badge variant="outline" className="capitalize">
+              <Badge variant="outline" className="capitalize text-xs px-2 py-0.5">
                 {val}
               </Badge>
             ),
@@ -112,17 +112,17 @@ export default function AdminModules() {
             key: 'ideal_stage',
             label: 'Stage',
             sortable: true,
-            width: 130,
+            width: 140,
             render: (val) => (
-              <span className="text-sm capitalize">{val?.replace('_', ' ')}</span>
+              <span className="text-sm text-muted-foreground capitalize">{val?.replace(/_/g, ' ')}</span>
             ),
           },
           {
             key: 'estimated_minutes',
             label: 'Duration',
             sortable: true,
-            width: 100,
-            render: (val) => `${val} min`,
+            width: 90,
+            render: (val) => <span className="text-sm text-muted-foreground">{val} min</span>,
           },
           {
             key: 'is_published',
