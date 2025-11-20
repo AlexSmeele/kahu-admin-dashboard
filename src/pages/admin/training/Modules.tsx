@@ -83,14 +83,14 @@ export default function AdminModules() {
             key: 'name',
             label: 'Module Name',
             sortable: true,
-            minWidth: 220,
+            width: 300,
           },
           {
             key: 'category',
             label: 'Category',
             sortable: true,
             filterable: true,
-            width: 200,
+            width: 220,
             render: (val) => (
               <Badge variant="secondary" className="capitalize text-xs px-2 py-0.5">
                 {val}
@@ -101,7 +101,7 @@ export default function AdminModules() {
             key: 'format',
             label: 'Format',
             sortable: true,
-            width: 140,
+            width: 160,
             render: (val) => (
               <Badge variant="outline" className="capitalize text-xs px-2 py-0.5">
                 {val}
@@ -112,7 +112,7 @@ export default function AdminModules() {
             key: 'ideal_stage',
             label: 'Stage',
             sortable: true,
-            width: 180,
+            width: 200,
             render: (val) => (
               <span className="text-sm text-muted-foreground capitalize">{val?.replace(/_/g, ' ')}</span>
             ),
@@ -121,7 +121,7 @@ export default function AdminModules() {
             key: 'estimated_minutes',
             label: 'Duration',
             sortable: true,
-            width: 90,
+            width: 100,
             render: (val) => <span className="text-sm text-muted-foreground">{val} min</span>,
           },
           {
