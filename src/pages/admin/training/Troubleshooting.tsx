@@ -32,13 +32,13 @@ export default function AdminTroubleshooting() {
     setLoading(true);
     try {
       const { data, error } = await supabase
-        .from("troubleshooting_issues")
+        .from("troubleshooting_issues" as any)
         .select("*")
         .order("category", { ascending: true })
         .order("issue_name", { ascending: true });
 
       if (error) throw error;
-      setIssues(data || []);
+      setIssues((data as any) || []);
     } catch (error) {
       console.error("Error fetching troubleshooting issues:", error);
       toast.error("Failed to load troubleshooting issues");
@@ -108,7 +108,7 @@ export default function AdminTroubleshooting() {
     const ids = records.map(r => r.id);
     try {
       const { error } = await supabase
-        .from("troubleshooting_issues")
+        .from("troubleshooting_issues" as any)
         .delete()
         .in("id", ids);
 

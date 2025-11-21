@@ -94,6 +94,7 @@ import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { startSessionMonitoring, handleSessionError } from "@/lib/session";
 
 interface NavItem {
   title: string;
@@ -143,6 +144,16 @@ export function AdminLayout() {
     checkAuth();
     fetchDynamicSections();
     fixMissingRouteOverrides();
+
+    // Start session monitoring
+    const cleanup = startSessionMonitoring(() => {
+      console.warn("Session expired, redirecting to login");
+      toast.error("Your session has expired. Please log in again.");
+      navigate(`/login?redirect=${encodeURIComponent(location.pathname)}`);
+    });
+
+    // Cleanup on unmount
+    return () => cleanup();
   }, []);
 
   // Fix missing route overrides and table name mappings for custom pages
@@ -246,32 +257,97 @@ export function AdminLayout() {
   };
 
   const checkAuth = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
+    try {
+      // Get current session first to check validity
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
-    if (!user) {
-      navigate("/login?redirect=/admin");
-      return;
+      if (sessionError) {
+        console.error("Session error:", sessionError);
+        toast.error("Session error. Please log in again.");
+        navigate(`/login?redirect=${encodeURIComponent(location.pathname)}`);
+        return;
+      }
+
+      if (!session) {
+        console.warn("No active session found");
+        navigate(`/login?redirect=${encodeURIComponent(location.pathname)}`);
+        return;
+      }
+
+      // Check if session is about to expire (within 5 minutes)
+      const expiresAt = session.expires_at || 0;
+      const now = Math.floor(Date.now() / 1000);
+      const timeUntilExpiry = expiresAt - now;
+
+      if (timeUntilExpiry < 0) {
+        console.warn("Session has expired");
+        toast.error("Your session has expired. Please log in again.");
+        navigate(`/login?redirect=${encodeURIComponent(location.pathname)}`);
+        return;
+      }
+
+      // Refresh session if expiring within 5 minutes
+      if (timeUntilExpiry < 300) {
+        console.log("Session expiring soon, refreshing...");
+        const { error: refreshError } = await supabase.auth.refreshSession();
+        
+        if (refreshError) {
+          console.error("Session refresh failed:", refreshError);
+          toast.error("Failed to refresh session. Please log in again.");
+          navigate(`/login?redirect=${encodeURIComponent(location.pathname)}`);
+          return;
+        }
+      }
+
+      // Get user
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        console.error("Failed to get user:", userError);
+        toast.error("Authentication failed. Please log in again.");
+        navigate(`/login?redirect=${encodeURIComponent(location.pathname)}`);
+        return;
+      }
+
+      // Check if user has admin role using secure function
+      const { data: isAdmin, error: roleError } = await supabase
+        .rpc("has_role", { _user_id: user.id, _role: "admin" });
+
+      if (roleError) {
+        console.error("Role check error:", roleError);
+        
+        // Provide specific error messages based on error type
+        if (roleError.message?.includes("JWT") || roleError.message?.includes("token")) {
+          toast.error("Session expired. Please log in again.");
+          navigate(`/login?redirect=${encodeURIComponent(location.pathname)}`);
+        } else {
+          toast.error("Authorization check failed. Please try again or contact support.");
+          navigate(`/login?redirect=${encodeURIComponent(location.pathname)}`);
+        }
+        return;
+      }
+
+      if (!isAdmin) {
+        console.warn("User does not have admin role");
+        toast.error("Unauthorized access - Admin role required. Please contact an administrator.");
+        navigate("/");
+        return;
+      }
+
+      // Get display name from profile
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("display_name")
+        .eq("id", user.id)
+        .single();
+
+      setUserEmail(profile?.display_name || user.email || "Admin");
+      setIsAuthorized(true);
+    } catch (error: any) {
+      console.error("Auth check failed:", error);
+      toast.error("Authentication error. Please log in again.");
+      navigate(`/login?redirect=${encodeURIComponent(location.pathname)}`);
     }
-
-    // Check if user has admin role using secure function
-    const { data: isAdmin, error } = await supabase
-      .rpc("has_role", { _user_id: user.id, _role: "admin" });
-
-    if (error || !isAdmin) {
-      toast.error("Unauthorized access - Admin role required");
-      navigate("/login?redirect=/admin");
-      return;
-    }
-
-    // Get display name from profile
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("display_name")
-      .eq("id", user.id)
-      .single();
-
-    setUserEmail(profile?.display_name || user.email || "Admin");
-    setIsAuthorized(true);
   };
 
   const handleSignOut = async () => {

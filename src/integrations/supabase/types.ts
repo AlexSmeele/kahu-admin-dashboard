@@ -2702,63 +2702,6 @@ export type Database = {
           },
         ]
       }
-      troubleshooting_issues: {
-        Row: {
-          category: string
-          created_at: string | null
-          donts: string | null
-          dos: string | null
-          id: string
-          is_published: boolean | null
-          issue_name: string
-          linked_module_ids: string[] | null
-          linked_skill_ids: string[] | null
-          media_urls: string[] | null
-          problem_description: string
-          recommended_steps: string | null
-          root_causes: string | null
-          severity: string
-          signs: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          category: string
-          created_at?: string | null
-          donts?: string | null
-          dos?: string | null
-          id?: string
-          is_published?: boolean | null
-          issue_name: string
-          linked_module_ids?: string[] | null
-          linked_skill_ids?: string[] | null
-          media_urls?: string[] | null
-          problem_description: string
-          recommended_steps?: string | null
-          root_causes?: string | null
-          severity?: string
-          signs?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          category?: string
-          created_at?: string | null
-          donts?: string | null
-          dos?: string | null
-          id?: string
-          is_published?: boolean | null
-          issue_name?: string
-          linked_module_ids?: string[] | null
-          linked_skill_ids?: string[] | null
-          media_urls?: string[] | null
-          problem_description?: string
-          recommended_steps?: string | null
-          root_causes?: string | null
-          severity?: string
-          signs?: string | null
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
       troubleshooting_modules: {
         Row: {
           brief_description: string | null
